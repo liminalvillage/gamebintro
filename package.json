@@ -1,0 +1,25 @@
+{
+  "name": "initiation",
+  "version": "0.1.0",
+  "private": true,
+  "description": "An Initiation to Game~B — a playable pixel-art retelling of the Game~B initiation, used as the introduction to Holons.",
+  "author": {
+    "name": "Roberto Valenti"
+  },
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5573",
+    "build": "vite build",
+    "preview": "vite preview --port 5573",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "lint": "prettier --check ."
+  },
+  "devDependencies": {
+    "prettier": "^3.0.0",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.0",
+    "vitest": "^4.0.18"
+  }
+}

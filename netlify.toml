@@ -1,0 +1,20 @@
+# Netlify config for the Initiation — a static Vite app, no server side.
+
+[build]
+  publish = "build"
+  command = "corepack enable && pnpm install && pnpm build"
+
+[build.environment]
+  NODE_VERSION = "24"
+  NETLIFY_USE_PNPM = "true"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"

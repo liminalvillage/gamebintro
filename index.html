@@ -1,0 +1,85 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"
+    />
+    <meta name="theme-color" content="#06050a" />
+    <meta
+      name="description"
+      content="An Initiation to Game~B — a playable pixel-art journey from the first game, through Game A, to Game B; the introduction to Holons."
+    />
+    <title>An Initiation to Game~B · Holons</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #06050a;
+        overflow: hidden;
+        touch-action: none;
+        -webkit-user-select: none;
+        user-select: none;
+        font-family:
+          ui-monospace, Menlo, Consolas, "Liberation Mono", monospace;
+      }
+      #stage {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      canvas {
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+        display: block;
+      }
+      /* The finale's links are real anchors laid over the canvas so they
+         stay keyboard-reachable and open in a new tab like any link. */
+      #links {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+      }
+      #links a {
+        position: absolute;
+        pointer-events: auto;
+        display: block;
+        opacity: 0;
+      }
+      #links a:focus-visible {
+        opacity: 1;
+        outline: 2px solid #ffd36a;
+        background: rgba(255, 211, 106, 0.15);
+      }
+      #typein {
+        position: fixed;
+        left: -9999px;
+        top: 0;
+        opacity: 0;
+        width: 1px;
+        height: 1px;
+        font-size: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="stage"></div>
+    <div id="links"></div>
+    <!-- Off-screen input: focusing it raises the soft keyboard on phones
+         during the terminal scene, so people can type their own questions. -->
+    <input
+      id="typein"
+      type="text"
+      autocomplete="off"
+      autocapitalize="sentences"
+      aria-label="Type your question"
+    />
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
