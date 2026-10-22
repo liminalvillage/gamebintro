@@ -184,6 +184,34 @@ export const TRIBE_PAGE = {
   footer: "NOW DO IT FOR REAL. FIND THE OTHERS.",
 };
 
+/** The moon chapter's diagram: one lunation, and what each quarter is for. */
+export const MOON = {
+  lunation: "LUNATION",
+  day: "DAY",
+  of: "OF",
+  /** The eight phase bands, new moon first (see game/lunation phaseBand). */
+  phases: [
+    "NEW MOON",
+    "WAXING CRESCENT",
+    "FIRST QUARTER",
+    "WAXING GIBBOUS",
+    "FULL MOON",
+    "WANING GIBBOUS",
+    "LAST QUARTER",
+    "WANING CRESCENT",
+  ],
+  /** What the tribe does at each quarter: new, first, full, last. */
+  quarters: ["ARRIVE & PLAN", "BUILD", "CELEBRATE", "MEND & SETTLE"],
+};
+
+/** Where the moon is tonight, under the mesh on the finale. */
+export const MOON_TONIGHT = {
+  line: (index: number, day: number, days: number) =>
+    `TONIGHT IS DAY ${day} OF ${days} OF LUNATION ${index}. AT THE NEXT NEW MOON, EVERY TRIBE IN THE MESH BEGINS AGAIN TOGETHER.`,
+  village:
+    "PLAYED FOR REAL AT LIMINAL VILLAGE, ITALY, AND ACROSS THE REGENERATIVA NETWORK.",
+};
+
 export const MESH_IN_HOLONS = [
   "HOLONS FEDERATE: EACH TRIBE KEEPS ITS OWN LEDGER AND SHARES WHAT IT CHOOSES, ACROSS HEXAGONS FROM THE NEIGHBOURHOOD TO THE GLOBE.",
   "NO SINGLE SERVER OWNS IT. NO SINGLE TRIBE RULES IT.",
@@ -193,6 +221,7 @@ export const LINKS = [
   { label: "FIND THE OTHERS", href: "https://holons.io" },
   { label: "OPEN THE DASHBOARD", href: "https://dashboard.holons.io" },
   { label: "PLAY ON TELEGRAM", href: "https://t.me/HolonsBot" },
+  { label: "THE YEAR IN MOONS", href: "https://liminalvillage.com/lunations" },
 ] as const;
 
 export const CREDITS = [
@@ -212,6 +241,10 @@ export const CREDITS = [
   "AGPL-3.0-OR-LATER",
   "DESIGNED THROUGH THE OCTALYSIS",
   "FRAMEWORK BY YU-KAI CHOU",
+  "",
+  "KEEP TIME BY THE MOON",
+  "LIMINALVILLAGE.COM/LUNATIONS",
+  "REGENERATIVA.EARTH",
   "",
   "FIND THE OTHERS",
   "HOLONS.IO",

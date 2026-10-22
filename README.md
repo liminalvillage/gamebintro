@@ -22,7 +22,12 @@ along every link; whoever has it answers, and the nearer the offer, the
 shorter the handoff quest. A partner then asks, in the tribe's Telegram-style
 chat, for the very thing you opened to it: give it and the mutual credit you
 took on settles in a circle. Then the handoff quest, a library that includes
-the partners' shelves, and the value equation put to a vote. Each
+the partners' shelves, and the value equation put to a vote. Last, the stewards show the clock a
+tribe keeps time by: the moon. A ring of eight moons marks one lunation
+(arrive and plan at the new moon, build, celebrate at the full, mend and
+settle as it wanes), with tonight's real cycle lit, and the story lands on
+Liminal Village in Italy and the ReGenerativa network, where tribes already
+live by lunations. Each
 interaction ends with a short card saying what the idea is; the screens
 borrow the kiosk's Needs & Offers look and Telegram's chat. The finale sums
 up the tribe you built and hands you the real links. **SKIP INTRO** on the
@@ -60,6 +65,9 @@ shape it took.
 - The second act's interactions live in `src/game/play/` (one file per
   feature, over the `PlayBase` shell in `types.ts`); the sandbox tribe they
   build is plain data with pure rules in `src/game/tribe.ts` (tested).
+- Lunations are counted as `@holons/core` counts them (`src/game/lunation.ts`,
+  the same port liminalvillage.com carries), so the cycle the game names
+  is the one the Telegram bot's /newmoon and the site's year in moons name.
 - Progress (chapter, chosen role, talisman, the sandbox tribe) is saved in
   `localStorage` so a phone that sleeps can continue.
 - It does not touch Holosphere or `@holons/core`: nothing is written anywhere.

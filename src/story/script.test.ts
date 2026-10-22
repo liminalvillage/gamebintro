@@ -63,6 +63,7 @@ describe("the script", () => {
       "quests",
       "library",
       "equation",
+      "moon",
     ];
     expect(ids).toEqual(order);
     const all = CHAPTERS.flatMap((c) => c.beats);

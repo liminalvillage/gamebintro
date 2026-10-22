@@ -19,6 +19,8 @@ import {
   CREDITS,
   LINKS,
   MESH_IN_HOLONS,
+  MOON,
+  MOON_TONIGHT,
   PLAY_MEANS,
   PLAY_OPTIONS,
   RESOURCES,
@@ -65,6 +67,9 @@ describe("bitmap font", () => {
     for (const d of Object.values(DRIVES)) texts.push(d.short, d.line);
     texts.push(...Object.values(AMULET));
     texts.push(...Object.values(OCTALYSIS_PAGE));
+    texts.push(MOON.lunation, MOON.day, MOON.of, ...MOON.phases);
+    texts.push(...MOON.quarters, MOON_TONIGHT.village);
+    texts.push(MOON_TONIGHT.line(1234, 30, 30));
     const missing = new Set<string>();
     for (const t of texts)
       for (const c of t) if (c !== "\n" && !hasGlyph(c)) missing.add(c);
@@ -102,6 +107,15 @@ describe("bitmap font", () => {
       expect(wrap(d.line, 136).length, d.short).toBeLessThanOrEqual(6);
     }
     expect(measure(AMULET.title)).toBeLessThanOrEqual(384);
+  });
+
+  it("tonight's moon fits above the finale's links", () => {
+    // the widest a cycle can print: four digits, day 30 of 30
+    expect(
+      wrap(MOON_TONIGHT.line(1234, 30, 30), 364).length,
+    ).toBeLessThanOrEqual(2);
+    expect(wrap(MOON_TONIGHT.village, 364).length).toBeLessThanOrEqual(2);
+    for (const p of MOON.phases) expect(measure(p)).toBeLessThanOrEqual(120);
   });
 
   it("measures and wraps on character cells", () => {

@@ -2,11 +2,11 @@
 //
 // Back at the desk, and then where this all lands: Holons. The tribe you
 // built, the shape its play left on the amulet (the Octalysis octagon), the mesh with
-// the real links, then the credits. The act already taught each idea by
+// the real links and tonight's lunation, then the credits. The act already taught each idea by
 // doing it, so the ending only sums up. The links are real anchors laid
 // over the canvas.
 
-import { drawParagraph, drawText, LINE_H } from "../engine/font";
+import { drawParagraph, drawText, LINE_H, wrap } from "../engine/font";
 import { H, W } from "../engine/screen";
 import { CAST } from "../art/characters";
 import { P } from "../art/palette";
@@ -27,11 +27,13 @@ import {
   CREDITS,
   LINKS,
   MESH_IN_HOLONS,
+  MOON_TONIGHT,
   RESOURCES,
   TRIBE_PAGE,
 } from "../story/holons";
 import { AROUND, OCTALYSIS_PAGE } from "../story/octalysis";
 import { driveLevels } from "./drives";
+import { lunationAt } from "./lunation";
 import { saveState } from "./state";
 import { EQUATION_KEYS, ledger, type Tribe } from "./tribe";
 import { TitleScene } from "./title";
@@ -321,25 +323,42 @@ export class FinaleScene implements Scene {
       phase: this.meshPhase,
       fire: 0,
     });
-    rect(g, 0, 0, W, 70, withAlpha(P.ink, 0.72));
+    const top = [...MESH_IN_HOLONS, MOON_TONIGHT.village];
+    const topH = top.reduce(
+      (h, l) => h + wrap(l, W - 20).length * LINE_H + 4,
+      18,
+    );
+    rect(g, 0, 0, W, topH, withAlpha(P.ink, 0.72));
     drawText(g, "THE MESH", W / 2, 6, P.gold, {
       align: "center",
       shadow: P.ink,
     });
     let y = 18;
-    for (const l of MESH_IN_HOLONS) {
-      const n = drawParagraph(g, l, 10, y, W - 20, P.paper, { shadow: P.ink });
+    top.forEach((l, i) => {
+      const col = i === top.length - 1 ? P.goldPale : P.paper;
+      const n = drawParagraph(g, l, 10, y, W - 20, col, { shadow: P.ink });
       y += n * LINE_H + 4;
-    }
-    rect(g, 0, H - 48, W, 48, withAlpha(P.ink, 0.78));
-    this.rects = [];
-    LINKS.forEach((l, i) => {
-      const cx = Math.round(W / 6 + (i * W) / 3);
-      this.rects.push(
-        button(g, l.label, cx, H - 40, Math.floor(t * 1.5) % 3 === i),
-      );
     });
-    this.again = button(g, "CREDITS", W / 2, H - 20, false);
+    const moon = lunationAt(Date.now());
+    rect(g, 0, H - 68, W, 68, withAlpha(P.ink, 0.78));
+    drawParagraph(
+      g,
+      MOON_TONIGHT.line(moon.index, moon.day, moon.days),
+      10,
+      H - 64,
+      W - 20,
+      P.goldPale,
+      { shadow: P.ink },
+    );
+    // three links in a row, then the year in moons beside the credits
+    this.rects = [];
+    const lit = Math.floor(t * 1.5) % LINKS.length;
+    LINKS.forEach((l, i) => {
+      const cx = i < 3 ? Math.round(W / 6 + (i * W) / 3) : Math.round(W / 3);
+      const by = i < 3 ? H - 40 : H - 20;
+      this.rects.push(button(g, l.label, cx, by, lit === i));
+    });
+    this.again = button(g, "CREDITS", Math.round((2 * W) / 3), H - 20, false);
   }
 
   private drawCredits(g: CanvasRenderingContext2D, t: number): void {

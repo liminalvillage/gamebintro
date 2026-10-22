@@ -2,12 +2,13 @@
 //
 // Interface furniture: the gold-framed dialogue box with a portrait, the
 // three wisdom orbs, the talisman, the parasite, the Octalysis octagon, and
-// the two diagram overlays (the class pyramid of Game A, the nested scales
-// of Game B).
+// the three diagram overlays (the class pyramid of Game A, the nested scales
+// of Game B, the lunation it keeps time by).
 
 import { H, W } from "../engine/screen";
 import { drawText, LINE_H, measure, wrapIndent } from "../engine/font";
 import { drawSprite } from "../engine/sprite";
+import { MOON } from "../story/holons";
 import { AROUND, DRIVES, type DriveId } from "../story/octalysis";
 import { CAST, portrait, type CharacterId } from "./characters";
 import { P } from "./palette";
@@ -407,6 +408,89 @@ export function scalesDiagram(g: Ctx, f: number, t: number): void {
     });
   }
   disc(g, cx, cy, 2, P.gold);
+}
+
+/** A moon `phase` of the way through its cycle: lit from the right waxing, the left waning. */
+export function moonFace(
+  g: Ctx,
+  cx: number,
+  cy: number,
+  r: number,
+  phase: number,
+  lit: string,
+): void {
+  disc(g, cx, cy, r, withAlpha(P.nightLow, 0.9));
+  const c = Math.cos(2 * Math.PI * phase);
+  g.fillStyle = lit;
+  for (let y = -r; y <= r; y++) {
+    const half = Math.floor(Math.sqrt(r * r - y * y));
+    const term = Math.round(half * c);
+    const [x0, x1] = phase < 0.5 ? [term, half] : [-half, -term];
+    if (x1 > x0)
+      g.fillRect(Math.round(cx + x0), Math.round(cy + y), x1 - x0 + 1, 1);
+  }
+}
+
+/**
+ * One lunation as a ring of eight moons, new at the top, turning clockwise;
+ * tonight's band ringed in gold, the cycle's number and day in the middle,
+ * and what the tribe does at each quarter beside it.
+ */
+export function moonDiagram(
+  g: Ctx,
+  f: number,
+  t: number,
+  now: { index: number; day: number; days: number; band: number },
+): void {
+  rect(g, 0, 0, W, H, withAlpha(P.nightTop, 0.75 * Math.min(1, f * 2)));
+  const cx = W / 2;
+  const cy = 74;
+  const R = 46;
+  const n = Math.min(8, Math.floor(f * 8 + 0.001));
+  for (let i = 0; i < n; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 4;
+    const x = Math.round(cx + Math.cos(a) * R);
+    const y = Math.round(cy + Math.sin(a) * R);
+    const here = i === now.band && f >= 1;
+    if (here) ring(g, x, y, 10 + Math.round(Math.sin(t * 3) * 0.6), P.gold);
+    moonFace(g, x, y, 7, i / 8, here ? P.goldPale : withAlpha(P.stone, 0.85));
+    if (i % 2) continue;
+    const label = MOON.quarters[i / 2]!;
+    const col = here ? P.gold : P.paper;
+    if (i === 0)
+      drawText(g, label, x, y - 20, col, { align: "center", shadow: P.ink });
+    else if (i === 4)
+      drawText(g, label, x, y + 12, col, { align: "center", shadow: P.ink });
+    else
+      drawText(
+        g,
+        label,
+        i === 2 ? x + 14 : x - 14 - measure(label),
+        y - 3,
+        col,
+        { shadow: P.ink },
+      );
+  }
+  if (f < 1) return;
+  drawText(g, `${MOON.lunation} ${now.index}`, cx, cy - 8, P.gold, {
+    align: "center",
+    shadow: P.ink,
+  });
+  drawText(
+    g,
+    `${MOON.day} ${now.day} ${MOON.of} ${now.days}`,
+    cx,
+    cy + 2,
+    P.paper,
+    {
+      align: "center",
+      shadow: P.ink,
+    },
+  );
+  drawText(g, MOON.phases[now.band]!, cx, cy + R + 22, P.goldPale, {
+    align: "center",
+    shadow: P.ink,
+  });
 }
 
 /** Vertical fade to black, 0 = clear, 1 = black. */

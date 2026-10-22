@@ -31,7 +31,8 @@ export type Beat =
         | "revive"
         | "pyramid"
         | "scales"
-        | "mesh";
+        | "mesh"
+        | "moon";
     }
   /** The parasite attack: keep the wisdom centres open. */
   | { trial: "first" | "second" }
@@ -674,6 +675,50 @@ export const CHAPTERS: Chapter[] = [
       {
         say: "matriarch",
         text: "No chief decided this. It was proposed, and the tribe voted. That is how every rule of a holon changes.",
+      },
+    ],
+  },
+  {
+    id: "moon",
+    scenery: "village",
+    music: "village",
+    beats: [
+      {
+        say: "sage",
+        text: "One last thing: the clock. Game A keeps time by the factory whistle, the quarterly report, the day the interest falls due.",
+      },
+      {
+        say: "chief",
+        text: "A tribe that plays Game~B keeps time by the moon. Look up. Every tribe in the mesh sees the same one.",
+      },
+      { fx: "moon" },
+      {
+        say: "sage",
+        text: "The moon is a progress bar the whole planet can read. From one new moon to the next is a lunation: twenty-nine and a half days.",
+      },
+      {
+        say: "matriarch",
+        text: "At the new moon we arrive and plan, each on three levels: our own growth, the people and place around us, and a cause for the planet.",
+      },
+      {
+        say: "chief",
+        text: "At the full moon we look back and celebrate. As it wanes we finish, mend and settle. When it goes dark, the cycle closes.",
+      },
+      {
+        say: "sage",
+        text: "A holon keeps its books by the moon: the quests, the hours, the credit, counted each lunation. Then a new page opens, for everyone at once.",
+      },
+      {
+        say: "matriarch",
+        text: "This is not only a story. In the hills of central Italy, at Liminal Village, tribes already live this way. Guests arrive with the new moon and stay a moonth.",
+      },
+      {
+        say: "sage",
+        text: "It is one node of a network, ReGenerativa: places that keep one calendar of moons, share their frameworks, and send quests from site to site.",
+      },
+      {
+        say: "chief",
+        text: "Wherever you are, the next new moon is yours to begin with. Count it, plan it, and find the others who are counting too.",
       },
       { card: "FIND THE OTHERS" },
     ],

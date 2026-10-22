@@ -38,6 +38,7 @@ import {
   hint,
   inRect,
   parasite as drawParasite,
+  moonDiagram,
   pyramidDiagram,
   scalesDiagram,
   talisman,
@@ -58,6 +59,7 @@ import {
   type DriveId,
 } from "../story/octalysis";
 import { driveLevels } from "./drives";
+import { lunationAt, phaseBand } from "./lunation";
 import { FinaleScene } from "./finale";
 import {
   createRoam,
@@ -156,8 +158,10 @@ export class ChapterScene implements Scene {
   private talismanT = -1;
   private collapse = 0;
   private collapseDir = 0;
-  private overlay: "pyramid" | "scales" | null = null;
+  private overlay: "pyramid" | "scales" | "moon" | null = null;
   private overlayF = 0;
+  /** Tonight's lunation, read off the clock when the moon fx starts. */
+  private moon = { index: 0, day: 1, days: 30, band: 0 };
   private mapAnim: { from: number; to: number; t: number } | null = null;
   private trial: Trial | null = null;
   private play: Play | null = null;
@@ -172,7 +176,6 @@ export class ChapterScene implements Scene {
     d: DriveId;
     box: { x: number; y: number; w: number; h: number };
   }[] = [];
-
   private cardShown = 0;
   private fadeIn = 1;
   private fadeOut = -1;
@@ -283,6 +286,12 @@ export class ChapterScene implements Scene {
       } else if (b.fx === "pyramid" || b.fx === "scales") {
         this.overlay = b.fx;
         this.overlayF = 0;
+      } else if (b.fx === "moon") {
+        const l = lunationAt(Date.now());
+        this.moon = { ...l, band: phaseBand(l.phase) };
+        this.overlay = "moon";
+        this.overlayF = 0;
+        this.s.audio.chime();
       } else if (b.fx === "mesh") {
         this.mapAnim = { from: 0, to: 1, t: 0 };
       }
@@ -321,7 +330,6 @@ export class ChapterScene implements Scene {
       this.s.audio.blip(990);
       return;
     }
-
     this.fadeIn = Math.max(0, this.fadeIn - dt * 1.2);
     this.shake = Math.max(0, this.shake - dt * 2);
     if (this.lit && (this.lit.t -= dt) <= 0) this.lit = null;
@@ -353,7 +361,7 @@ export class ChapterScene implements Scene {
     if (this.overlay)
       this.overlayF = Math.min(
         1,
-        this.overlayF + dt / (this.overlay === "scales" ? 4.5 : 2.2),
+        this.overlayF + dt / (this.overlay === "pyramid" ? 2.2 : 4.5),
       );
 
     if (this.fadeOut >= 0) {
@@ -422,7 +430,7 @@ export class ChapterScene implements Scene {
                 ? this.fxT > 1.1
                 : b.fx === "pyramid"
                   ? this.overlayF >= 1 || (adv && this.fxT > 0.5)
-                  : b.fx === "scales"
+                  : b.fx === "scales" || b.fx === "moon"
                     ? this.overlayF >= 1 || (adv && this.fxT > 0.5)
                     : /* mesh */ (this.mapAnim?.t ?? 1) >= 1 ||
                       (adv && this.fxT > 0.5);
@@ -682,6 +690,7 @@ export class ChapterScene implements Scene {
 
     if (this.overlay === "pyramid") pyramidDiagram(g, this.overlayF);
     if (this.overlay === "scales") scalesDiagram(g, this.overlayF, t);
+    if (this.overlay === "moon") moonDiagram(g, this.overlayF, t, this.moon);
 
     if (this.talismanT >= 0 && this.talismanT < 2.8) {
       const f = Math.min(1, this.talismanT / 0.6);
