@@ -5,9 +5,10 @@
 // white hat (meaning, growth, creativity — feels good, lasts) and the black
 // hat (scarcity, uncertainty, fear of loss — compels, then burns out). Game A
 // is the parasite riding the black hat; Game~B leads from the white hat and
-// uses the black only where it is honest. The player is not told this while
-// playing: the octagon by the wisdom orbs quietly fills as each play wakes
-// its drives, and the finale shows the shape it took.
+// uses the black only where it is honest. In the act the Chief's talisman
+// wakes as an amulet of eight faces: the Sage explains it once, each play
+// lights the faces it wakes, a tap on it opens it to read, and the finale
+// shows the shape it took.
 
 import type { PlayId } from "./holons";
 
@@ -18,6 +19,8 @@ export const DRIVE_IDS: DriveId[] = [1, 2, 3, 4, 5, 6, 7, 8];
 export type Drive = {
   /** One word for Chou's drive (1 = epic meaning & calling, …). */
   short: string;
+  /** What it is, and how each game pulls it (the amulet's panel). */
+  line: string;
   /** Top of the octagon (white), bottom (black), or the sides between. */
   hat: "white" | "black" | "side";
 };
@@ -25,34 +28,42 @@ export type Drive = {
 export const DRIVES: Record<DriveId, Drive> = {
   1: {
     short: "MEANING",
+    line: "YOU ARE PART OF SOMETHING BIGGER THAN YOURSELF. GAME~B LEADS WITH IT.",
     hat: "white",
   },
   2: {
     short: "GROWTH",
+    line: "YOU GET BETTER AT WHAT MATTERS, AND YOU CAN SEE IT. GAME~B LEADS WITH IT.",
     hat: "white",
   },
   3: {
     short: "CREATIVITY",
+    line: "YOU TRY THINGS, COMBINE THEM, MAKE THEM YOURS. GAME~B LEADS WITH IT.",
     hat: "white",
   },
   4: {
     short: "OWNERSHIP",
+    line: "WHAT YOU TEND IS YOURS TO CARE FOR. GAME A TURNS IT INTO HOARDING.",
     hat: "side",
   },
   5: {
     short: "RELATEDNESS",
+    line: "OTHERS ARE WITH YOU: HELP, THANKS, BELONGING. GAME A TURNS IT INTO ENVY.",
     hat: "side",
   },
   6: {
     short: "SCARCITY",
+    line: "WHAT IS RARE FEELS PRECIOUS. GAME A FAKES THE LACK TO SELL TO YOU.",
     hat: "black",
   },
   7: {
     short: "CURIOSITY",
+    line: "YOU WANT TO SEE WHAT COMES NEXT. GAME A MAKES IT A SLOT MACHINE.",
     hat: "black",
   },
   8: {
     short: "LOSS",
+    line: "YOU DO NOT WANT TO LOSE WHAT YOU HAVE. GAME A RUNS ON THAT FEAR.",
     hat: "black",
   },
 };
@@ -74,6 +85,15 @@ export const PLAY_DRIVES: Record<PlayId, DriveId[]> = {
   quest: [2, 5],
   library: [4, 8],
   equation: [3, 1],
+};
+
+/** The amulet's panel, opened by a tap on it in the HUD. */
+export const AMULET = {
+  title: "THE AMULET OF EIGHT DRIVES",
+  tap: "TAP A FACE",
+  awake: "AWAKE IN YOUR TRIBE",
+  asleep: "STILL ASLEEP",
+  credit: "THE OCTALYSIS OF YU-KAI CHOU",
 };
 
 /** The finale's octalysis page. */

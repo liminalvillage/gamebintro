@@ -26,6 +26,7 @@ export type Beat =
         | "parasite-rise"
         | "parasite-calm"
         | "talisman"
+        | "amulet"
         | "collapse"
         | "revive"
         | "pyramid"
@@ -493,6 +494,19 @@ export const CHAPTERS: Chapter[] = [
     music: "bloom",
     beats: [
       { choose: "role" },
+      { fx: "amulet" },
+      {
+        say: "sage",
+        text: "Look at your talisman. Here it wakes as an amulet with eight faces: the eight drives that move every player in every game.",
+      },
+      {
+        say: "sage",
+        text: "Game A pulls the lower faces: lack, chance, the fear of losing. Game~B leads from the upper ones: meaning, growth, creativity.",
+      },
+      {
+        say: "sage",
+        text: "Each thing we do together lights the faces it wakes. Tap the amulet, up in the corner, whenever you want to read it.",
+      },
       {
         say: "matriarch",
         text: "Then let's play. A tribe that plays Game~B needs a home for what it shares: its needs, its gifts, its work. That home is a holon.",

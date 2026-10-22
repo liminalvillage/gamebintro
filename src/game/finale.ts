@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Back at the desk, and then where this all lands: Holons. The tribe you
-// built, the shape its play left on the Octalysis octagon, the mesh with
+// built, the shape its play left on the amulet (the Octalysis octagon), the mesh with
 // the real links, then the credits. The act already taught each idea by
 // doing it, so the ending only sums up. The links are real anchors laid
 // over the canvas.
@@ -13,15 +13,14 @@ import { P } from "../art/palette";
 import { hexagon, rect, withAlpha } from "../art/paint";
 import { drawScenery, getScenery } from "../art/scenery";
 import {
+  amulet,
   button,
-  driveAngle,
-  driveColor,
+  driveLabels,
   exitChip,
   fade,
   glitch,
   hint,
   inRect,
-  octagon,
   talisman,
 } from "../art/ui";
 import {
@@ -31,7 +30,7 @@ import {
   RESOURCES,
   TRIBE_PAGE,
 } from "../story/holons";
-import { AROUND, DRIVES, OCTALYSIS_PAGE } from "../story/octalysis";
+import { AROUND, OCTALYSIS_PAGE } from "../story/octalysis";
 import { driveLevels } from "./drives";
 import { saveState } from "./state";
 import { EQUATION_KEYS, ledger, type Tribe } from "./tribe";
@@ -308,22 +307,8 @@ export class FinaleScene implements Scene {
     const grown = Object.fromEntries(
       AROUND.map((d) => [d, lv[d] * f]),
     ) as typeof lv;
-    octagon(g, OCT.x, OCT.y, OCT.r, grown, t);
-    for (const d of AROUND) {
-      const a = driveAngle(d);
-      const c = Math.cos(a);
-      drawText(
-        g,
-        DRIVES[d].short,
-        OCT.x + c * (OCT.r + 8),
-        OCT.y + Math.sin(a) * (OCT.r + 8) - 3,
-        withAlpha(driveColor(d), lv[d] > 0 ? 1 : 0.4),
-        {
-          align: Math.abs(c) < 0.3 ? "center" : c > 0 ? "left" : "right",
-          shadow: P.ink,
-        },
-      );
-    }
+    amulet(g, OCT.x, OCT.y, OCT.r, grown, t);
+    driveLabels(g, OCT.x, OCT.y, OCT.r, lv);
     drawParagraph(g, OCTALYSIS_PAGE.footer, 16, 156, W - 112, P.paper, {
       shadow: P.ink,
     });

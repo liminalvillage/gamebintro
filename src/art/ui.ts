@@ -206,6 +206,65 @@ export function octagon(
   }
 }
 
+/**
+ * The talisman woken in the act: the eight-faced octagon with the symbol
+ * of wholeness' ring and point at its heart.
+ */
+export function amulet(
+  g: Ctx,
+  cx: number,
+  cy: number,
+  r: number,
+  levels: Record<DriveId, number>,
+  t: number,
+  opts: { focus?: DriveId | null; lit?: DriveId[] } = {},
+): void {
+  octagon(g, cx, cy, r, levels, t, opts);
+  ring(g, cx, cy, Math.max(2, Math.round(r * 0.3)), withAlpha(P.gold, 0.8));
+  const s = 0.5 + 0.5 * Math.sin(t * 3);
+  disc(g, cx, cy, 1, withAlpha(P.white, 0.5 + 0.5 * s));
+}
+
+/**
+ * The drives' names around an octagon, dim while asleep; returns each
+ * label's box so a tap on a name can pick its drive.
+ */
+export function driveLabels(
+  g: Ctx,
+  cx: number,
+  cy: number,
+  r: number,
+  levels: Record<DriveId, number>,
+  focus: DriveId | null = null,
+): { d: DriveId; box: Box }[] {
+  return AROUND.map((d) => {
+    const a = driveAngle(d);
+    const c = Math.cos(a);
+    const x = cx + c * (r + 8);
+    const y = cy + Math.sin(a) * (r + 8) - 3;
+    const align = Math.abs(c) < 0.3 ? "center" : c > 0 ? "left" : "right";
+    const w = measure(DRIVES[d].short);
+    const color =
+      focus === d ? P.white : withAlpha(driveColor(d), levels[d] > 0 ? 1 : 0.4);
+    drawText(g, DRIVES[d].short, x, y, color, { align, shadow: P.ink });
+    const x0 = align === "center" ? x - w / 2 : align === "left" ? x : x - w;
+    return { d, box: { x: x0 - 3, y: y - 3, w: w + 6, h: 13 } };
+  });
+}
+
+/** The drive whose wedge holds point `p`, if it is on the octagon. */
+export function driveAt(
+  cx: number,
+  cy: number,
+  r: number,
+  p: { x: number; y: number },
+): DriveId | null {
+  if (Math.hypot(p.x - cx, p.y - cy) > r + 4) return null;
+  const a = Math.atan2(p.y - cy, p.x - cx) + Math.PI / 2;
+  const i = Math.round(a / (Math.PI / 4));
+  return AROUND[((i % 8) + 8) % 8]!;
+}
+
 /** The symbol of wholeness: a hexagon holding a circle holding a point. */
 export function talisman(
   g: Ctx,

@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { PLAY_IDS } from "../story/holons";
 import { AROUND, DRIVE_IDS, DRIVES, PLAY_DRIVES } from "../story/octalysis";
+import { driveAngle, driveAt } from "../art/ui";
 import { driveLevels, played } from "./drives";
 import {
   adoptEquation,
@@ -36,6 +37,17 @@ describe("octalysis data", () => {
     expect(AROUND.slice(3, 6)).toEqual([7, 8, 6]);
     for (const d of [1, 2, 3] as const) expect(DRIVES[d].hat).toBe("white");
     for (const d of [6, 7, 8] as const) expect(DRIVES[d].hat).toBe("black");
+  });
+});
+
+describe("the amulet's faces", () => {
+  it("a tap on a wedge reads that drive, off the amulet nothing", () => {
+    for (const d of DRIVE_IDS) {
+      const a = driveAngle(d);
+      const p = { x: 100 + Math.cos(a) * 20, y: 100 + Math.sin(a) * 20 };
+      expect(driveAt(100, 100, 40, p), `drive ${d}`).toBe(d);
+    }
+    expect(driveAt(100, 100, 40, { x: 100, y: 160 })).toBeNull();
   });
 });
 

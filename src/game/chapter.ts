@@ -6,7 +6,7 @@
 // open. Effects run on timers. When the last beat ends the chapter fades
 // and hands over to the next one, or to the finale.
 
-import { drawText, measure } from "../engine/font";
+import { drawParagraph, drawText, LINE_H, measure } from "../engine/font";
 import { H, W } from "../engine/screen";
 import { drawSprite } from "../engine/sprite";
 import {
@@ -25,15 +25,18 @@ import {
   type SceneryParams,
 } from "../art/scenery";
 import {
+  amulet,
   bigTitle,
   button,
   dialogue,
+  driveAt,
+  driveColor,
+  driveLabels,
   exitChip,
   fade,
   frame,
   hint,
   inRect,
-  octagon,
   parasite as drawParasite,
   pyramidDiagram,
   scalesDiagram,
@@ -47,7 +50,13 @@ import {
   type Chapter,
 } from "../story/script";
 import type { Wisdom } from "../story/holons";
-import { PLAY_DRIVES, type DriveId } from "../story/octalysis";
+import {
+  AMULET,
+  DRIVE_IDS,
+  DRIVES,
+  PLAY_DRIVES,
+  type DriveId,
+} from "../story/octalysis";
 import { driveLevels } from "./drives";
 import { FinaleScene } from "./finale";
 import {
@@ -115,8 +124,19 @@ const ORBS: {
     key: ["3", "b", "B"],
   },
 ];
+/** Keys 1-8 read the faces in drive order. */
+const AROUND_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8"];
 const ORB_Y = 96;
 const ORB_R = 15;
+
+/** The amulet in the HUD, and opened in its panel. */
+const AMULET_HUD = { x: 14, y: 12, r: 8 };
+const AMULET_BIG = { x: 112, y: 106, r: 44 };
+/** The panel's text column, right of the big amulet's labels. */
+const COL = { x: 236, w: W - 236 - 12 };
+
+/** Whether the amulet has been opened yet (it beckons until it has). */
+let amuletOpened = false;
 
 export class ChapterScene implements Scene {
   private readonly ch: Chapter;
@@ -141,8 +161,18 @@ export class ChapterScene implements Scene {
   private mapAnim: { from: number; to: number; t: number } | null = null;
   private trial: Trial | null = null;
   private play: Play | null = null;
-  /** Drives the last play woke: they glow on the HUD octagon for a while. */
+  /** Drives the last play woke: they glow on the amulet for a while. */
   private lit: { drives: DriveId[]; t: number } | null = null;
+  private amuletT = -1;
+  /** The amulet's panel while open, with the face being read. */
+  private panel: { d: DriveId } | null = null;
+  private amuletBtn = { x: 0, y: 0, w: 0, h: 0 };
+  private closeBtn = { x: 0, y: 0, w: 0, h: 0 };
+  private faceBoxes: {
+    d: DriveId;
+    box: { x: number; y: number; w: number; h: number };
+  }[] = [];
+
   private cardShown = 0;
   private fadeIn = 1;
   private fadeOut = -1;
@@ -243,6 +273,9 @@ export class ChapterScene implements Scene {
         this.talismanT = 0;
         this.s.state.talisman = true;
         this.s.audio.chime();
+      } else if (b.fx === "amulet") {
+        this.amuletT = 0;
+        this.s.audio.chime();
       } else if (b.fx === "collapse") this.collapseDir = 1;
       else if (b.fx === "revive") {
         this.collapse = 1;
@@ -279,8 +312,16 @@ export class ChapterScene implements Scene {
     const adv = inp.consumeAdvance();
     const keys = inp.consumeKeys();
     const typed = inp.consumeTyped();
+    if (this.panel) return this.runPanel(taps, keys, adv);
     if (keys.includes("Escape") || taps.some((p) => inRect(p, this.exitBtn)))
       return this.leave();
+    if (this.hasAmulet && taps.some((p) => inRect(p, this.amuletBtn))) {
+      amuletOpened = true;
+      this.panel = { d: this.lit?.drives[0] ?? 1 };
+      this.s.audio.blip(990);
+      return;
+    }
+
     this.fadeIn = Math.max(0, this.fadeIn - dt * 1.2);
     this.shake = Math.max(0, this.shake - dt * 2);
     if (this.lit && (this.lit.t -= dt) <= 0) this.lit = null;
@@ -295,6 +336,7 @@ export class ChapterScene implements Scene {
     }
     this.followParty(dt);
     if (this.talismanT >= 0) this.talismanT += dt;
+    if (this.amuletT >= 0) this.amuletT += dt;
     if (this.collapseDir !== 0) {
       this.collapse = Math.max(
         0,
@@ -372,7 +414,7 @@ export class ChapterScene implements Scene {
       const done =
         b.fx === "parasite-rise" || b.fx === "parasite-calm"
           ? this.fxT > 1.1
-          : b.fx === "talisman"
+          : b.fx === "talisman" || b.fx === "amulet"
             ? this.fxT > 2.6 || (adv && this.fxT > 0.8)
             : b.fx === "collapse"
               ? this.fxT > 1.3
@@ -555,6 +597,34 @@ export class ChapterScene implements Scene {
     }
   }
 
+  /** In the act the talisman is woken as the amulet. */
+  private get hasAmulet(): boolean {
+    return this.index >= HOLONS_ACT_START && this.s.state.talisman;
+  }
+
+  /** The amulet's panel holds the game still: read a face, then close. */
+  private runPanel(
+    taps: { x: number; y: number }[],
+    keys: string[],
+    adv: boolean,
+  ): void {
+    const pick = (d: DriveId) => {
+      if (this.panel && this.panel.d !== d) this.s.audio.blip(1320);
+      this.panel = { d };
+    };
+    if (keys.includes("Escape")) return void (this.panel = null);
+    const n = AROUND_KEYS.findIndex((k) => keys.includes(k));
+    if (n >= 0) pick((n + 1) as DriveId);
+    for (const p of taps) {
+      if (inRect(p, this.closeBtn)) return void (this.panel = null);
+      const hit =
+        driveAt(AMULET_BIG.x, AMULET_BIG.y, AMULET_BIG.r, p) ??
+        this.faceBoxes.find((f) => inRect(p, f.box))?.d;
+      if (hit) pick(hit);
+    }
+    if (adv && !taps.length) this.panel = null;
+  }
+
   exit(): void {
     this.play?.exit?.();
     this.play = null;
@@ -624,16 +694,30 @@ export class ChapterScene implements Scene {
         });
     }
 
+    if (this.amuletT >= 0 && this.amuletT < 2.8) this.drawWaking(g, t);
+
     if (this.trial) this.drawTrial(g, this.trial, t);
 
     // HUD
     wisdomOrbs(g, this.s.state.wisdom, t, W - 84);
-    // in the act, the tribe's Octalysis octagon fills as each play wakes it
-    if (this.index >= HOLONS_ACT_START)
-      octagon(g, W - 101, 12, 7, driveLevels(this.s.state.tribe), t, {
+    const { x: ax, y: ay, r: ar } = AMULET_HUD;
+    if (this.hasAmulet) {
+      // the talisman woken: each play lights the faces it wakes
+      const sayAmulet = !!b && "say" in b && /amulet/i.test(b.text);
+      if (!amuletOpened || this.lit || sayAmulet) {
+        const s = 0.5 + 0.5 * Math.sin(t * 4);
+        ring(g, ax, ay, ar + 2 + Math.round(s * 2), withAlpha(P.gold, 0.5 * s));
+      }
+      amulet(g, ax, ay, ar, driveLevels(this.s.state.tribe), t, {
         lit: this.lit?.drives,
       });
-    if (this.s.state.talisman) talisman(g, 14, 12, 7, t);
+      this.amuletBtn = {
+        x: ax - ar - 4,
+        y: ay - ar - 4,
+        w: 2 * ar + 8,
+        h: 2 * ar + 8,
+      };
+    } else if (this.s.state.talisman) talisman(g, ax, ay, 7, t);
     const tribe = this.s.state.tribe;
     if (tribe.name) {
       const bx = this.s.state.talisman ? 32 : 14;
@@ -672,7 +756,59 @@ export class ChapterScene implements Scene {
 
     if (this.fadeIn > 0) fade(g, this.fadeIn);
     if (this.fadeOut >= 0) fade(g, this.fadeOut);
+    if (this.panel) return this.drawPanel(g, t, this.panel.d);
     this.exitBtn = exitChip(g);
+  }
+
+  /** The talisman turning into the eight-faced amulet, mid-screen. */
+  private drawWaking(g: CanvasRenderingContext2D, t: number): void {
+    const f = Math.min(1, this.amuletT / 1.2);
+    disc(g, W / 2, 80, 32, withAlpha(P.gold, 0.15));
+    if (f < 1) talisman(g, W / 2, 80, 22, t, withAlpha(P.gold, 1 - f));
+    const empty = driveLevels(this.s.state.tribe);
+    amulet(g, W / 2, 80, Math.round(26 * f), empty, t, {
+      lit: f >= 1 ? DRIVE_IDS : [],
+    });
+    if (f >= 1) {
+      rect(g, W / 2 - 90, 114, 180, 14, withAlpha(P.ink, 0.7));
+      drawText(g, AMULET.title, W / 2, 118, P.goldPale, {
+        align: "center",
+        shadow: P.ink,
+      });
+    }
+  }
+
+  /** The amulet opened: its faces around it, the one being read beside. */
+  private drawPanel(g: CanvasRenderingContext2D, t: number, d: DriveId): void {
+    rect(g, 0, 0, W, H, withAlpha(P.ink, 0.95));
+    drawText(g, AMULET.title, W / 2, 8, P.gold, {
+      align: "center",
+      shadow: P.ink,
+    });
+    const lv = driveLevels(this.s.state.tribe);
+    const { x, y, r } = AMULET_BIG;
+    amulet(g, x, y, r, lv, t, { focus: d, lit: this.lit?.drives });
+    this.faceBoxes = driveLabels(g, x, y, r, lv, d);
+    const drive = DRIVES[d];
+    let ty = 44;
+    drawText(g, drive.short, COL.x, ty, driveColor(d), { shadow: P.ink });
+    ty += LINE_H + 4;
+    const n = drawParagraph(g, drive.line, COL.x, ty, COL.w, P.paper, {
+      shadow: P.ink,
+    });
+    ty += n * LINE_H + 6;
+    drawText(
+      g,
+      lv[d] > 0 ? AMULET.awake : AMULET.asleep,
+      COL.x,
+      ty,
+      withAlpha(lv[d] > 0 ? P.gold : P.paper, lv[d] > 0 ? 1 : 0.5),
+    );
+    drawText(g, AMULET.tap, x, H - 30, withAlpha(P.paper, 0.6), {
+      align: "center",
+    });
+    drawText(g, AMULET.credit, 12, H - 12, withAlpha(P.paper, 0.45));
+    this.closeBtn = button(g, "CLOSE", W - 40, H - 24, true);
   }
 
   private drawParty(

@@ -24,7 +24,7 @@ import {
   RESOURCES,
   TRIBE_PAGE,
 } from "../story/holons";
-import { DRIVES, OCTALYSIS_PAGE } from "../story/octalysis";
+import { AMULET, DRIVES, OCTALYSIS_PAGE } from "../story/octalysis";
 
 describe("bitmap font", () => {
   it("every glyph is exactly 5×7 and uses only # and .", () => {
@@ -62,7 +62,8 @@ describe("bitmap font", () => {
     for (const n of PLAY_OPTIONS.needs) texts.push(n.text);
     texts.push(TRIBE_PAGE.title, TRIBE_PAGE.unnamed, TRIBE_PAGE.footer);
     texts.push(...Object.values(TRIBE_PAGE.rows));
-    for (const d of Object.values(DRIVES)) texts.push(d.short);
+    for (const d of Object.values(DRIVES)) texts.push(d.short, d.line);
+    texts.push(...Object.values(AMULET));
     texts.push(...Object.values(OCTALYSIS_PAGE));
     const missing = new Set<string>();
     for (const t of texts)
@@ -81,6 +82,26 @@ describe("bitmap font", () => {
     for (const d of Object.values(DRIVES))
       expect(192 + 48 + measure(d.short), d.short).toBeLessThanOrEqual(384);
     expect(wrap(OCTALYSIS_PAGE.footer, 272).length).toBeLessThanOrEqual(3);
+  });
+
+  it("the amulet's panel fits beside it", async () => {
+    // big amulet at x 112, r 44, labels 8px out; text column 236..372
+    const { driveAngle } = await import("../art/ui");
+    for (const [k, d] of Object.entries(DRIVES)) {
+      const c = Math.cos(driveAngle(Number(k) as 1));
+      const x = 112 + c * 52;
+      const w = measure(d.short);
+      const [x0, x1] =
+        Math.abs(c) < 0.3
+          ? [x - w / 2, x + w / 2]
+          : c > 0
+            ? [x, x + w]
+            : [x - w, x];
+      expect(x0, d.short).toBeGreaterThanOrEqual(2);
+      expect(x1, d.short).toBeLessThanOrEqual(232);
+      expect(wrap(d.line, 136).length, d.short).toBeLessThanOrEqual(6);
+    }
+    expect(measure(AMULET.title)).toBeLessThanOrEqual(384);
   });
 
   it("measures and wraps on character cells", () => {

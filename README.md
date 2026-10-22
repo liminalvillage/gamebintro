@@ -32,15 +32,18 @@ CONTINUE picks the chapter back up.
 
 The act is designed through Yu-kai Chou's
 [Octalysis](https://medium.com/@yukaichou/the-octalysis-framework-for-gamification-behavioral-design-fe381150f0c1)
-framework, quietly. Game A pulls the black-hat drives (manufactured
-scarcity, slot-machine chance, fear of loss); a tribe in Holons leads from
-the white hat (meaning, growth, creativity) and uses the black only where
-it is honest — a real need waits, a borrowed tool comes back whole. Every
-play wakes two drives (`PLAY_DRIVES` in `src/story/octalysis.ts`); a small
-octagon beside the wisdom orbs fills as they wake and glows briefly after
-each play (`src/game/drives.ts`, read off the tribe, nothing extra saved).
-Nothing explains it mid-play; the finale's "What moved your tribe" page
-shows the shape it took, in one sentence.
+framework, worn as the talisman. At the start of the act the Chief's
+talisman wakes as an amulet of eight faces and the Sage says what it is:
+Game A pulls the black-hat drives (manufactured scarcity, slot-machine
+chance, fear of loss); a tribe in Holons leads from the white hat (meaning,
+growth, creativity) and uses the black only where it is honest — a real
+need waits, a borrowed tool comes back whole. Every play wakes two drives
+(`PLAY_DRIVES` in `src/story/octalysis.ts`); the amulet in the top-left
+corner fills as they wake and glows after each play (`src/game/drives.ts`,
+read off the tribe, nothing extra saved). Tap it (any time in the act) to
+open it: tap a face, or press 1-8, to read that drive and whether your
+tribe has woken it. The finale's "What moved your tribe" page shows the
+shape it took.
 
 ## What it is
 
