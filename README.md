@@ -47,16 +47,28 @@ need waits, a borrowed tool comes back whole. Every play wakes two drives
 corner fills as they wake and glows after each play (`src/game/drives.ts`,
 read off the tribe, nothing extra saved). Tap it (any time in the act) to
 open it: tap a face, or press 1-8, to read that drive and whether your
-tribe has woken it. The finale's "What moved your tribe" page shows the
-shape it took.
+tribe has woken it. Once a chapter, Game A whispers through one drive's
+black hat, for you alone ("grab it before they do", "shut your half",
+"keep it and never give back", "take the credit", "buy a bigger one",
+"weigh it your way", "one more refresh"; `TEMPTATIONS` in
+`src/story/octalysis.ts`). You answer: take the pull and the parasite
+swells, your wisdoms dim and the face cracks red; hold it and a steward
+names the same drive pulled from above. The finale's "What moved your
+tribe" page shows the shape it took, the faces Game A pulled, and reads
+any face you tap with what you answered.
 
 ## What it is
 
 - A single static page: Vite + TypeScript, one `<canvas>`, no framework, no
-  image files. All art is drawn by hand as pixel maps (`src/art/characters.ts`)
-  or generated from seeds (`src/art/scenery.ts`), the font is a 5×7 bitmap
-  (`src/engine/font.ts`), the sound is a small Web Audio synth. The whole
-  bundle is ~120 KB.
+  image files. The game lays out on a fixed 384×216 stage but draws at the
+  display's native resolution (`src/engine/screen.ts`): scenery is vector
+  shapes and gradients baked into high-resolution layers
+  (`src/art/paint.ts`, `src/art/scenery.ts`), the cast is high-resolution
+  pixel art, painted in the boxes of its original pixel maps and baked down
+  to a grid three times as fine, with flat cel shading and a 1px outline
+  (`src/art/cast.ts`, `src/art/characters.ts`), text is JetBrains Mono on
+  the same 6-unit grid (`src/engine/font.ts`), and the sound is a small Web
+  Audio synth.
 - The story is data: `src/story/script.ts` holds every beat (dialogue, walks,
   choices, effects, trials, and the second act's `play` beats),
   `src/story/holons.ts` the cards naming each idea, the sandbox world (needs,

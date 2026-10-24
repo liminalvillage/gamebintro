@@ -6,7 +6,7 @@
 // fire, water, airships, the growing map. Everything is generated from a
 // seed — no image files.
 
-import { H, W } from "../engine/screen";
+import { H, hiCanvas, RES, W } from "../engine/screen";
 import { irand, noise2d, rng, type Rng } from "../engine/rng";
 import { P } from "./palette";
 import {
@@ -17,6 +17,8 @@ import {
   ellipse,
   figure,
   flame,
+  glow,
+  hex,
   hexagon,
   hut,
   line,
@@ -83,9 +85,10 @@ export function drawScenery(
 ): void {
   for (const l of s.layers) {
     const off = -((scroll * l.parallax) % s.period);
-    g.drawImage(l.canvas, Math.round(off), 0);
-    g.drawImage(l.canvas, Math.round(off + s.period), 0);
-    if (off > 0) g.drawImage(l.canvas, Math.round(off - s.period), 0);
+    // a hair of overlap hides the seam between tiles at fractional offsets
+    g.drawImage(l.canvas, off, 0, s.period + 0.25, H);
+    g.drawImage(l.canvas, off + s.period, 0, s.period + 0.25, H);
+    if (off > 0) g.drawImage(l.canvas, off - s.period, 0, s.period + 0.25, H);
   }
   s.mid?.(g, t, scroll, p);
 }
@@ -96,12 +99,43 @@ function layer(
   paint: (g: Ctx, r: Rng) => void,
   seed = 1,
 ): Layer {
-  const canvas = document.createElement("canvas");
-  canvas.width = period;
-  canvas.height = H;
-  const g = canvas.getContext("2d")!;
+  const { canvas, g } = hiCanvas(period, H);
   paint(g, rng(seed));
   return { canvas, parallax };
+}
+
+/**
+ * Paint a `w`×`h` region sample by sample at the full offscreen resolution
+ * (for noise fields: oceans and land, nebulae), so their edges are as fine
+ * as the screen instead of one block per logical unit. Soft fields can
+ * pass a lower `res` and let the upscale smooth them.
+ */
+function field(
+  g: Ctx,
+  w: number,
+  h: number,
+  fn: (x: number, y: number) => [number, number, number, number] | null,
+  res = RES,
+): void {
+  const { canvas } = hiCanvas(1, 1);
+  canvas.width = Math.ceil(w * res);
+  canvas.height = Math.ceil(h * res);
+  const fg = canvas.getContext("2d")!;
+  const img = fg.createImageData(canvas.width, canvas.height);
+  const d = img.data;
+  for (let y = 0; y < canvas.height; y++) {
+    for (let x = 0; x < canvas.width; x++) {
+      const c = fn((x + 0.5) / res, (y + 0.5) / res);
+      if (!c) continue;
+      const o = (y * canvas.width + x) * 4;
+      d[o] = c[0];
+      d[o + 1] = c[1];
+      d[o + 2] = c[2];
+      d[o + 3] = c[3];
+    }
+  }
+  fg.putImageData(img, 0, 0);
+  g.drawImage(canvas, 0, 0, w, h);
 }
 
 function stars(
@@ -113,12 +147,27 @@ function stars(
   color = P.paper,
 ): void {
   for (let i = 0; i < n; i++) {
-    const x = irand(r, 0, w - 1);
-    const y = irand(r, 0, yMax);
-    rect(g, x, y, 1, 1, withAlpha(color, 0.4 + r() * 0.6));
+    const x = irand(r, 0, w - 1) + r();
+    const y = irand(r, 0, yMax) + r();
+    const a = 0.4 + r() * 0.6;
+    const size = 0.25 + r() * r() * 0.5;
+    g.fillStyle = withAlpha(color, a);
+    g.beginPath();
+    g.arc(x, y, size, 0, Math.PI * 2);
+    g.fill();
     if (r() < 0.12) {
-      rect(g, x - 1, y, 3, 1, withAlpha(color, 0.35));
-      rect(g, x, y - 1, 1, 3, withAlpha(color, 0.35));
+      glow(g, x, y, 3.5, color, 0.35);
+      g.fillStyle = withAlpha(color, 0.5);
+      g.beginPath();
+      g.moveTo(x - 2.5, y);
+      g.lineTo(x, y - 0.25);
+      g.lineTo(x + 2.5, y);
+      g.lineTo(x, y + 0.25);
+      g.moveTo(x, y - 2.5);
+      g.lineTo(x + 0.25, y);
+      g.lineTo(x, y + 2.5);
+      g.lineTo(x - 0.25, y);
+      g.fill();
     }
   }
 }
@@ -222,7 +271,7 @@ function valley(): Scenery {
     47,
   );
   const front = (g: Ctx) => {
-    g.drawImage(bark.canvas, 0, 0);
+    g.drawImage(bark.canvas, 0, 0, period, H);
   };
   return { id: "valley", groundY: 153, period, layers, mid, front };
 }
@@ -762,13 +811,12 @@ function commons(): Scenery {
 function worldmap(): Scenery {
   const period = W;
   const n = noise2d(81, 32);
+  const height = (x: number, y: number) =>
+    n(x / 28, y / 28) * 0.7 + n(x / 9 + 5, y / 9 + 5) * 0.3;
   const land: boolean[][] = [];
   for (let y = 0; y < H; y++) {
     const row: boolean[] = [];
-    for (let x = 0; x < W; x++) {
-      const v = n(x / 28, y / 28) * 0.7 + n(x / 9 + 5, y / 9 + 5) * 0.3;
-      row.push(v > 0.56);
-    }
+    for (let x = 0; x < W; x++) row.push(height(x, y) > 0.56);
     land.push(row);
   }
   const layers: Layer[] = [
@@ -776,11 +824,46 @@ function worldmap(): Scenery {
       period,
       0,
       (g, r) => {
-        rect(g, 0, 0, W, H, P.ocean);
-        for (let y = 0; y < H; y++)
-          for (let x = 0; x < W; x++)
-            if (land[y]![x])
-              rect(g, x, y, 1, 1, (x + y) % 7 === 0 ? P.landDeep : P.land);
+        const ocean = hex(P.ocean);
+        const deep = hex("#0f1d38");
+        const shore = hex("#2f5a7a");
+        const lo = hex(P.land);
+        const hi = hex(P.landDeep);
+        const sand = hex(P.sand);
+        field(g, W, H, (x, y) => {
+          const v = height(x, y);
+          const e = v - 0.56;
+          if (e < 0) {
+            // a pale shelf along the coast, darkening into the deep
+            const f = Math.min(1, -e / 0.18);
+            const [c0, c1, m] =
+              f < 0.12
+                ? [shore, ocean, f / 0.12]
+                : [ocean, deep, (f - 0.12) / 0.88];
+            return [
+              c0[0] + (c1[0] - c0[0]) * m,
+              c0[1] + (c1[1] - c0[1]) * m,
+              c0[2] + (c1[2] - c0[2]) * m,
+              255,
+            ];
+          }
+          // a soft anti-aliased coastline, a sand rim, then land shading
+          const edge = Math.min(1, e / 0.004);
+          const rim = Math.max(0, 1 - e / 0.02);
+          const f = Math.min(1, e / 0.2);
+          const lr = lo[0] + (hi[0] - lo[0]) * f;
+          const lg = lo[1] + (hi[1] - lo[1]) * f;
+          const lb = lo[2] + (hi[2] - lo[2]) * f;
+          const cr = lr + (sand[0] - lr) * rim * 0.6;
+          const cg = lg + (sand[1] - lg) * rim * 0.6;
+          const cb = lb + (sand[2] - lb) * rim * 0.6;
+          return [
+            shore[0] + (cr - shore[0]) * edge,
+            shore[1] + (cg - shore[1]) * edge,
+            shore[2] + (cb - shore[2]) * edge,
+            255,
+          ];
+        });
         for (let i = 0; i < 300; i++)
           rect(
             g,
@@ -863,26 +946,60 @@ function warp(): Scenery {
       period,
       0,
       (g, r) => {
-        for (let y = 0; y < H; y++) {
-          for (let x = 0; x < W; x += 2) {
-            const v = n(x / 40, y / 30) * 0.6 + n(x / 13 + 3, y / 13) * 0.4;
-            const c =
-              v > 0.62
-                ? P.nebulaB
-                : v > 0.5
-                  ? P.nebulaA
-                  : v > 0.42
-                    ? P.nebulaC
-                    : P.nightTop;
-            rect(g, x, y, 2, 1, c);
+        // the same four tones as soft clouds: several octaves of noise,
+        // each turned off the lattice so no grid shows through
+        const stops: [number, [number, number, number]][] = [
+          [0.3, hex(P.nightTop)],
+          [0.44, hex(P.nebulaC)],
+          [0.56, hex(P.nebulaA)],
+          [0.72, hex(P.nebulaB)],
+        ];
+        const fbm = (x: number, y: number) => {
+          let v = 0;
+          let amp = 0.5;
+          let f = 1 / 48;
+          let sum = 0;
+          for (let o = 0; o < 5; o++) {
+            const a = 0.6 + o * 1.1;
+            const u = (x * Math.cos(a) - y * Math.sin(a)) * f + o * 7.3;
+            const w = (x * Math.sin(a) + y * Math.cos(a)) * f + o * 3.1;
+            v += n(u, w) * amp;
+            sum += amp;
+            amp *= 0.5;
+            f *= 2.03;
           }
-        }
+          return v / sum;
+        };
+        field(
+          g,
+          W,
+          H,
+          (x, y) => {
+            // a little domain warp swirls the clouds
+            const v = fbm(x + fbm(x + 40, y) * 40, y + fbm(x, y + 70) * 30);
+            let i = 0;
+            while (i < stops.length - 1 && v > stops[i + 1]![0]) i++;
+            const [v0, c0] = stops[i]!;
+            const [v1, c1] = stops[Math.min(stops.length - 1, i + 1)]!;
+            const f =
+              v1 > v0 ? Math.max(0, Math.min(1, (v - v0) / (v1 - v0))) : 0;
+            const s = f * f * (3 - 2 * f);
+            return [
+              c0[0] + (c1[0] - c0[0]) * s,
+              c0[1] + (c1[1] - c0[1]) * s,
+              c0[2] + (c1[2] - c0[2]) * s,
+              255,
+            ];
+          },
+          2,
+        );
         stars(g, r, W, H, 260);
         for (let i = 0; i < 24; i++) {
           const x = irand(r, 0, W);
           const y = irand(r, 0, H);
-          rect(g, x - 2, y, 5, 1, withAlpha(P.white, 0.7));
-          rect(g, x, y - 2, 1, 5, withAlpha(P.white, 0.7));
+          glow(g, x + 0.5, y + 0.5, 6, P.white, 0.3);
+          line(g, x - 2.5, y, x + 2.5, y, withAlpha(P.white, 0.7), 0.5);
+          line(g, x, y - 2.5, x, y + 2.5, withAlpha(P.white, 0.7), 0.5);
         }
       },
       92,

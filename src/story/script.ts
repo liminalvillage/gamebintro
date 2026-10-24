@@ -10,6 +10,7 @@ import type { SceneryId } from "../art/scenery";
 import type { MoodId } from "../engine/music";
 import type { RoamId } from "../game/roam";
 import type { PlayId, Purpose } from "./holons";
+import type { TemptId } from "./octalysis";
 
 export type Beat =
   /** A line of dialogue; with `when`, only for a holon of that purpose. */
@@ -42,6 +43,8 @@ export type Beat =
   | { card: string }
   /** One Holons feature, played in the sandbox tribe (the second act). */
   | { play: PlayId }
+  /** Game A whispers through one drive; the player takes it or holds. */
+  | { tempt: TemptId }
   /** A pause in seconds. */
   | { wait: number };
 
@@ -509,6 +512,10 @@ export const CHAPTERS: Chapter[] = [
         text: "Each thing we do together lights the faces it wakes. Tap the amulet, up in the corner, whenever you want to read it.",
       },
       {
+        say: "sage",
+        text: "And Game A will whisper to you through these faces, for you alone. Each time, you choose which way the face is pulled. The amulet remembers.",
+      },
+      {
         say: "matriarch",
         text: "Then let's play. A tribe that plays Game~B needs a home for what it shares: its needs, its gifts, its work. That home is a holon.",
       },
@@ -583,16 +590,11 @@ export const CHAPTERS: Chapter[] = [
         say: "chief",
         text: "We each looked on our own shelves. Maps, bread, tools. A tribe alone never holds everything a life needs.",
       },
-      { fx: "parasite-rise" },
-      {
-        say: "parasite",
-        text: "THEN BUY IT. BORROW AT INTEREST. TRUST NO ONE BEYOND YOUR OWN WALLS. THAT IS HOW IT HAS ALWAYS BEEN DONE.",
-      },
+      { tempt: "grab" },
       {
         say: "matriarch",
-        text: "Breathe. That is Game A talking. Beyond the hill there are other tribes, and they have shelves too.",
+        text: "Breathe. That voice will come back, every time we have something to share. Beyond the hill there are other tribes, and they have shelves too.",
       },
-      { fx: "parasite-calm" },
       { walk: 120 },
     ],
   },
@@ -619,6 +621,7 @@ export const CHAPTERS: Chapter[] = [
         say: "matriarch",
         text: "Nine things in reach where there were three, and nothing changed hands. This is the mesh: it grows one link at a time, and no tribe rules it.",
       },
+      { tempt: "shut" },
     ],
   },
   {
@@ -635,16 +638,11 @@ export const CHAPTERS: Chapter[] = [
         text: "Whoever has it can answer. Not whoever pays most: whoever has it, and is near, or is a friend. The nearer, the shorter the walk home.",
       },
       { play: "cast" },
-      { fx: "parasite-rise" },
-      {
-        say: "parasite",
-        text: "NOW YOU OWE THEM. THEY WILL COME TO COLLECT, AND WITH INTEREST. YOU ARE SMALLER THAN YOU WERE.",
-      },
+      { tempt: "keep" },
       {
         say: "sage",
         text: "No interest and no master. It is mutual credit: a balance, and it settles when we give in turn, to anyone in the mesh.",
       },
-      { fx: "parasite-calm" },
       {
         say: "chief",
         text: "Listen. The bot is ringing. One of our new partners has a need of its own.",
@@ -669,6 +667,7 @@ export const CHAPTERS: Chapter[] = [
         say: "chief",
         text: "When it is done, the hours are counted for everyone who took part. Pick one that is yours to do.",
       },
+      { tempt: "credit" },
       { play: "quest" },
       {
         say: "matriarch",
@@ -686,6 +685,7 @@ export const CHAPTERS: Chapter[] = [
         say: "chief",
         text: "Remember the talisman? I did not sell it to you. I lent it. In Game A a tool sits idle in a hundred sheds.",
       },
+      { tempt: "envy" },
       {
         say: "chief",
         text: "In the tribe, tools are shared, not hoarded: a library of things. See what is free, borrow it, bring it back. Our partners' shelves are open to us too.",
@@ -707,6 +707,7 @@ export const CHAPTERS: Chapter[] = [
         say: "sage",
         text: "In Game A one thing was honoured: accumulation. Whoever held the most stood at the top of the pyramid.",
       },
+      { tempt: "rank" },
       {
         say: "sage",
         text: "A tribe that plays Game~B chooses for itself what it honours. That is its value equation: hours, money, participation, appreciation. Weigh them.",
@@ -727,6 +728,7 @@ export const CHAPTERS: Chapter[] = [
         say: "sage",
         text: "One last thing: the clock. Game A keeps time by the factory whistle, the quarterly report, the day the interest falls due.",
       },
+      { tempt: "price" },
       {
         say: "chief",
         text: "A tribe that plays Game~B keeps time by the moon. Look up. Every tribe in the mesh sees the same one.",

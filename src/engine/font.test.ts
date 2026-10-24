@@ -7,6 +7,7 @@ import {
   GLYPH_W,
   hasGlyph,
   measure,
+  splitAlpha,
   wrap,
 } from "./font";
 import {
@@ -26,7 +27,13 @@ import {
   RESOURCES,
   TRIBE_PAGE,
 } from "../story/holons";
-import { AMULET, DRIVES, OCTALYSIS_PAGE } from "../story/octalysis";
+import {
+  AMULET,
+  DRIVES,
+  OCTALYSIS_PAGE,
+  TEMPT_UI,
+  TEMPTATIONS,
+} from "../story/octalysis";
 
 describe("bitmap font", () => {
   it("every glyph is exactly 5×7 and uses only # and .", () => {
@@ -66,7 +73,11 @@ describe("bitmap font", () => {
     texts.push(...Object.values(TRIBE_PAGE.rows));
     for (const d of Object.values(DRIVES)) texts.push(d.short, d.line);
     texts.push(...Object.values(AMULET));
-    texts.push(...Object.values(OCTALYSIS_PAGE));
+    const { tally, ...page } = OCTALYSIS_PAGE;
+    texts.push(...Object.values(page), tally(0, 7), tally(2, 7));
+    for (const tp of Object.values(TEMPTATIONS))
+      texts.push(tp.whisper, tp.take, tp.refuse, tp.took, tp.refused);
+    texts.push(...Object.values(TEMPT_UI));
     texts.push(MOON.lunation, MOON.day, MOON.of, ...MOON.phases);
     texts.push(...MOON.quarters, MOON_TONIGHT.village);
     texts.push(MOON_TONIGHT.line(1234, 30, 30));
@@ -142,5 +153,17 @@ describe("wrapIndent", () => {
     const lines = wrapIndent("ONE TWO THREE FOUR FIVE SIX", 60, 24);
     expect(lines[0]).toBe("ONE");
     expect(lines.slice(1)).toEqual(["TWO THREE", "FOUR FIVE", "SIX"]);
+  });
+});
+
+describe("glyph colours", () => {
+  it("caches translucent text by its opaque colour", () => {
+    // a pulsing hint must not mint a new glyph canvas every frame
+    const a = splitAlpha("rgba(243,238,228,0.6123)");
+    const b = splitAlpha("rgba(243,238,228,0.9877)");
+    expect(a[0]).toBe("rgb(243,238,228)");
+    expect(b[0]).toBe(a[0]);
+    expect(a[1]).toBeCloseTo(0.6123);
+    expect(splitAlpha("#f3eee4")).toEqual(["#f3eee4", 1]);
   });
 });

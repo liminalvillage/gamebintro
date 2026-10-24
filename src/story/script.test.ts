@@ -2,6 +2,8 @@
 import { describe, expect, it } from "vitest";
 import { CHAPTERS, HOLONS_ACT_START, SCALES } from "./script";
 import { PLAY_IDS, PLAY_OPTIONS, PURPOSE_IDS, PURPOSES } from "./holons";
+import { TEMPT_IDS, TEMPTATIONS } from "./octalysis";
+import { measure } from "../engine/font";
 import { CAST } from "../art/characters";
 import { wrap } from "../engine/font";
 
@@ -153,6 +155,42 @@ describe("the script", () => {
       (b) => "say" in b && b.text.includes("galaxy"),
     );
     expect(line).toBeDefined();
+  });
+
+  it("Game A whispers once in every chapter of the act, each through its own drive", () => {
+    const act = CHAPTERS.slice(HOLONS_ACT_START);
+    const tempts = act.map((c) =>
+      c.beats
+        .filter((b) => "tempt" in b)
+        .map((b) => ("tempt" in b ? b.tempt : "")),
+    );
+    for (const [i, t] of tempts.entries()) expect(t.length, act[i]!.id).toBe(1);
+    expect(tempts.flat()).toEqual(TEMPT_IDS);
+    const drives = TEMPT_IDS.map((id) => TEMPTATIONS[id].drive);
+    expect(new Set(drives).size).toBe(drives.length);
+    for (const c of CHAPTERS.slice(0, HOLONS_ACT_START))
+      expect(
+        c.beats.some((b) => "tempt" in b),
+        c.id,
+      ).toBe(false);
+  });
+
+  it("every whisper and answer fits the box, and both buttons fit the screen", () => {
+    const fits = (who: keyof typeof CAST, text: string) => {
+      const pad = " ".repeat(CAST[who].name.length + 2);
+      expect(
+        wrap(pad + text, 290).length,
+        text.slice(0, 40),
+      ).toBeLessThanOrEqual(5);
+    };
+    for (const tp of Object.values(TEMPTATIONS)) {
+      fits("parasite", tp.whisper);
+      fits(tp.by, tp.took);
+      fits(tp.by, tp.refused);
+      // two buttons, one in each half of the 384px screen
+      for (const l of [tp.take, tp.refuse])
+        expect(measure(`1 ${l}`) + 16, l).toBeLessThanOrEqual(180);
+    }
   });
 
   it("answers every purpose, and only after the holon has one", () => {

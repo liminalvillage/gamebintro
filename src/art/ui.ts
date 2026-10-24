@@ -5,20 +5,36 @@
 // the three diagram overlays (the class pyramid of Game A, the nested scales
 // of Game B, the lunation it keeps time by).
 
-import { H, W } from "../engine/screen";
-import { drawText, LINE_H, measure, wrapIndent } from "../engine/font";
+import { H, hiCanvas, W } from "../engine/screen";
+import {
+  drawParagraph,
+  drawText,
+  LINE_H,
+  measure,
+  wrapIndent,
+} from "../engine/font";
 import { drawSprite } from "../engine/sprite";
 import { MOON } from "../story/holons";
-import { AROUND, DRIVES, type DriveId } from "../story/octalysis";
+import {
+  AROUND,
+  DRIVES,
+  TEMPT_UI,
+  TEMPTATIONS,
+  temptationOf,
+  type DriveId,
+  type TemptId,
+} from "../story/octalysis";
 import { CAST, portrait, type CharacterId } from "./characters";
 import { P } from "./palette";
 import {
   disc,
+  glow,
   hexagon,
   line,
   polygon,
   rect,
   ring,
+  shade,
   tri,
   withAlpha,
   type Ctx,
@@ -26,7 +42,7 @@ import {
 
 export const BOX = { x: 12, y: 152, w: W - 24, h: 58 } as const;
 
-/** Ornamental gold frame with notched corners and side diamonds. */
+/** Ornamental gold frame: a rounded glass panel, a double gold rule, side diamonds. */
 export function frame(
   g: Ctx,
   x: number,
@@ -37,34 +53,61 @@ export function frame(
   fill: string | null = withAlpha(P.ink, 0.86),
 ): void {
   if (fill) {
-    rect(g, x + 2, y, w - 4, h, fill);
-    rect(g, x, y + 2, w, h - 4, fill);
+    g.fillStyle = fill;
+    g.beginPath();
+    g.roundRect(x, y, w, h, 3);
+    g.fill();
+    // a faint sheen down the glass
+    const sheen = g.createLinearGradient(0, y, 0, y + h);
+    sheen.addColorStop(0, "rgba(255,255,255,0.07)");
+    sheen.addColorStop(0.5, "rgba(255,255,255,0)");
+    sheen.addColorStop(1, "rgba(0,0,0,0.18)");
+    g.fillStyle = sheen;
+    g.fill();
   }
-  // notched border
-  rect(g, x + 3, y, w - 6, 1, color);
-  rect(g, x + 3, y + h - 1, w - 6, 1, color);
-  rect(g, x, y + 3, 1, h - 6, color);
-  rect(g, x + w - 1, y + 3, 1, h - 6, color);
-  for (const [cx, cy, sx, sy] of [
-    [x, y, 1, 1],
-    [x + w - 1, y, -1, 1],
-    [x, y + h - 1, 1, -1],
-    [x + w - 1, y + h - 1, -1, -1],
-  ] as [number, number, number, number][]) {
-    rect(g, cx + sx * 1, cy + sy * 2, 1, 1, color);
-    rect(g, cx + sx * 2, cy + sy * 1, 1, 1, color);
-  }
+  g.lineJoin = "round";
+  g.strokeStyle = color;
+  g.lineWidth = 1;
+  g.beginPath();
+  g.roundRect(x + 0.5, y + 0.5, w - 1, h - 1, 3);
+  g.stroke();
+  g.strokeStyle = withAlpha(color, 0.45);
+  g.lineWidth = 0.4;
+  g.beginPath();
+  g.roundRect(x + 2, y + 2, w - 4, h - 4, 2);
+  g.stroke();
   // side diamonds
-  const my = Math.round(y + h / 2);
-  for (const dx of [x - 1, x + w]) {
-    rect(g, dx, my - 2, 1, 5, color);
-    rect(g, dx + (dx < x ? -1 : 1), my - 1, 1, 3, color);
-    rect(g, dx + (dx < x ? -2 : 2), my, 1, 1, color);
+  const my = y + h / 2;
+  for (const [dx, sx] of [
+    [x + 0.5, -1],
+    [x + w - 0.5, 1],
+  ] as [number, number][]) {
+    polygon(
+      g,
+      [
+        [dx, my - 3],
+        [dx + sx * 3, my],
+        [dx, my + 3],
+        [dx - sx * 0.5, my],
+      ],
+      color,
+    );
+    disc(g, dx + sx * 1 - 0.5, my - 0.5, 0.6, P.goldPale);
   }
   // top centre jewel
-  const mx = Math.round(x + w / 2);
-  rect(g, mx - 1, y - 1, 3, 1, color);
-  rect(g, mx, y - 2, 1, 1, P.gold);
+  const mx = x + w / 2;
+  polygon(
+    g,
+    [
+      [mx - 3, y + 0.5],
+      [mx, y - 2.5],
+      [mx + 3, y + 0.5],
+      [mx, y + 2],
+    ],
+    color,
+  );
+  glow(g, mx, y - 0.5, 4, P.gold, 0.5);
+  disc(g, mx - 0.5, y - 1, 0.8, P.goldPale);
 }
 
 /**
@@ -83,15 +126,29 @@ export function dialogue(
   // portrait
   const px = BOX.x + 6;
   const py = BOX.y + 6;
-  rect(g, px, py, 46, 46, c.backdrop);
-  rect(g, px, py, 46, 1, P.goldPale);
-  rect(g, px, py + 45, 46, 1, P.goldDeep);
-  rect(g, px, py, 1, 46, P.goldPale);
-  rect(g, px + 45, py, 1, 46, P.goldDeep);
+  g.save();
+  g.beginPath();
+  g.roundRect(px, py, 46, 46, 2.5);
+  const bd = g.createRadialGradient(px + 23, py + 18, 2, px + 23, py + 23, 34);
+  bd.addColorStop(0, shade(c.backdrop, 0.25));
+  bd.addColorStop(1, shade(c.backdrop, -0.35));
+  g.fillStyle = bd;
+  g.fill();
+  g.clip();
   const spr = portrait(who);
-  // portraits are 22px; draw them 2× for the 46px frame
-  g.imageSmoothingEnabled = false;
+  // portraits are 22px; drawn 2× for the 46px frame
   g.drawImage(spr.canvas, px + 1, py + 1, 44, 44);
+  g.restore();
+  g.lineWidth = 1;
+  g.strokeStyle = P.goldDeep;
+  g.beginPath();
+  g.roundRect(px + 0.5, py + 0.5, 45, 45, 2.5);
+  g.stroke();
+  g.strokeStyle = withAlpha(P.goldPale, 0.6);
+  g.lineWidth = 0.4;
+  g.beginPath();
+  g.roundRect(px + 1.4, py + 1.4, 43.2, 43.2, 2);
+  g.stroke();
   // name, then the text flowing on from it (capitals, like the film)
   const tx = px + 54;
   const ty = py + 2;
@@ -142,8 +199,21 @@ export function wisdomOrbs(
     const cx = x + i * 14;
     const v = w[k];
     const r = 4;
-    ring(g, cx, y + 4, r + 1, withAlpha(color, 0.35));
-    disc(g, cx, y + 4, r, withAlpha(color, 0.15 + 0.85 * v));
+    glow(g, cx + 0.5, y + 4.5, r * 3, color, 0.35 * v);
+    ring(g, cx, y + 4, r + 1, withAlpha(color, 0.35), 0.6);
+    disc(g, cx, y + 4, r, withAlpha(shade(color, -0.55), 0.5 + 0.4 * v));
+    const orb = g.createRadialGradient(
+      cx - 0.8,
+      y + 2.8,
+      0.3,
+      cx + 0.5,
+      y + 4.5,
+      r + 0.5,
+    );
+    orb.addColorStop(0, withAlpha(shade(color, 0.6), 0.2 + 0.8 * v));
+    orb.addColorStop(0.6, withAlpha(color, 0.15 + 0.85 * v));
+    orb.addColorStop(1, withAlpha(shade(color, -0.3), 0.1 + 0.7 * v));
+    disc(g, cx, y + 4, r, orb);
     if (v > 0.7) {
       const s = 0.5 + 0.5 * Math.sin(t * 5 + i);
       ring(g, cx, y + 4, r + 2 + Math.round(s), withAlpha(color, 0.25 * s));
@@ -165,7 +235,8 @@ export function driveAngle(d: DriveId): number {
 
 /**
  * The Octalysis octagon: one wedge per drive, filled outward as far as the
- * drive is woken (0..1). `focus` outlines one wedge; `lit` pulses one.
+ * drive is woken (0..1). `focus` outlines one wedge; `lit` pulses one;
+ * `pulled` reddens the rim of the drives Game A pulled from below.
  */
 export function octagon(
   g: Ctx,
@@ -174,7 +245,7 @@ export function octagon(
   r: number,
   levels: Record<DriveId, number>,
   t: number,
-  opts: { focus?: DriveId | null; lit?: DriveId[] } = {},
+  opts: { focus?: DriveId | null; lit?: DriveId[]; pulled?: DriveId[] } = {},
 ): void {
   const at = (a: number, rr: number): [number, number] => [
     cx + Math.cos(a) * rr,
@@ -193,6 +264,33 @@ export function octagon(
         [[cx, cy], at(a - half, r * v), at(a + half, r * v)],
         withAlpha(c, 0.55 + 0.3 * v + pulse),
       );
+    // pulled from below by Game A: the face goes dark, cracked in red
+    if (opts.pulled?.includes(d)) {
+      const flick = 0.75 + 0.25 * Math.sin(t * 5 + d);
+      polygon(
+        g,
+        [[cx, cy], at(a - half, r), at(a + half, r)],
+        withAlpha(P.ink, 0.7),
+      );
+      const crack = [0.95, 0.75, 0.55, 0.35].map((k, i) =>
+        at(a + (i % 2 ? 0.12 : -0.08), r * k),
+      );
+      for (let i = 1; i < crack.length; i++)
+        line(
+          g,
+          ...crack[i - 1]!,
+          ...crack[i]!,
+          withAlpha(P.red, flick),
+          Math.max(0.6, r / 30),
+        );
+      line(
+        g,
+        ...at(a - half, r),
+        ...at(a + half, r),
+        withAlpha(P.red, flick),
+        Math.max(1, r / 18),
+      );
+    }
   }
   for (const d of AROUND) {
     const a = driveAngle(d);
@@ -218,7 +316,7 @@ export function amulet(
   r: number,
   levels: Record<DriveId, number>,
   t: number,
-  opts: { focus?: DriveId | null; lit?: DriveId[] } = {},
+  opts: { focus?: DriveId | null; lit?: DriveId[]; pulled?: DriveId[] } = {},
 ): void {
   octagon(g, cx, cy, r, levels, t, opts);
   ring(g, cx, cy, Math.max(2, Math.round(r * 0.3)), withAlpha(P.gold, 0.8));
@@ -227,7 +325,8 @@ export function amulet(
 }
 
 /**
- * The drives' names around an octagon, dim while asleep; returns each
+ * The drives' names around an octagon, dim while asleep, red where Game A
+ * pulled them; returns each
  * label's box so a tap on a name can pick its drive.
  */
 export function driveLabels(
@@ -237,6 +336,7 @@ export function driveLabels(
   r: number,
   levels: Record<DriveId, number>,
   focus: DriveId | null = null,
+  pulled: DriveId[] = [],
 ): { d: DriveId; box: Box }[] {
   return AROUND.map((d) => {
     const a = driveAngle(d);
@@ -246,7 +346,11 @@ export function driveLabels(
     const align = Math.abs(c) < 0.3 ? "center" : c > 0 ? "left" : "right";
     const w = measure(DRIVES[d].short);
     const color =
-      focus === d ? P.white : withAlpha(driveColor(d), levels[d] > 0 ? 1 : 0.4);
+      focus === d
+        ? P.white
+        : pulled.includes(d)
+          ? P.red
+          : withAlpha(driveColor(d), levels[d] > 0 ? 1 : 0.4);
     drawText(g, DRIVES[d].short, x, y, color, { align, shadow: P.ink });
     const x0 = align === "center" ? x - w / 2 : align === "left" ? x : x - w;
     return { d, box: { x: x0 - 3, y: y - 3, w: w + 6, h: 13 } };
@@ -275,13 +379,20 @@ export function talisman(
   t: number,
   color = P.gold,
 ): void {
+  glow(g, cx + 0.5, cy + 0.5, r * 1.8, color, 0.25);
   hexagon(g, cx, cy, r, null, color);
   ring(g, cx, cy, Math.max(2, Math.round(r * 0.6)), color);
   const s = 0.5 + 0.5 * Math.sin(t * 3);
   disc(g, cx, cy, 1, withAlpha(P.white, 0.5 + 0.5 * s));
   for (let i = 0; i < 6; i++) {
     const a = (Math.PI / 180) * (60 * i - 30);
-    rect(g, cx + Math.cos(a) * r, cy + Math.sin(a) * r, 1, 1, P.white);
+    disc(
+      g,
+      cx + Math.cos(a) * r - 0.5,
+      cy + Math.sin(a) * r - 0.5,
+      0.7,
+      P.white,
+    );
   }
 }
 
@@ -296,7 +407,8 @@ export function parasite(
 ): void {
   if (r <= 0) return;
   const k = Math.max(0, Math.min(1, intensity));
-  disc(g, cx, cy, r + 6, withAlpha(P.cyanDeep, 0.1 * k));
+  glow(g, cx + 0.5, cy + 0.5, r * 2.2 + 8, P.cyanDeep, 0.35 * k + 0.1);
+  glow(g, cx + 0.5, cy + 0.5, r * 0.9, P.magenta, 0.5);
   for (let i = 0; i < 4; i++) {
     const rr = Math.round(
       r * (0.55 + i * 0.18) + Math.sin(t * 6 + i * 1.7) * 1.5,
@@ -316,7 +428,8 @@ export function parasite(
         x + Math.cos(a + Math.sin(t * 17 + s * 3 + i) * 0.6) * (r * 0.35);
       const ny =
         y + Math.sin(a + Math.cos(t * 13 + s * 2 + i) * 0.6) * (r * 0.35);
-      line(g, x, y, nx, ny, withAlpha(P.cyan, 0.9));
+      line(g, x, y, nx, ny, withAlpha(P.cyan, 0.35), 1.6);
+      line(g, x, y, nx, ny, withAlpha(P.white, 0.9), 0.5);
       x = nx;
       y = ny;
     }
@@ -325,16 +438,13 @@ export function parasite(
   for (let i = 1; i <= 2; i++) {
     const ex = r + 10 * i;
     const ey = Math.round(r * 0.55 * i);
-    for (let a = 0; a < Math.PI * 2; a += 0.12) {
-      rect(
-        g,
-        cx + Math.cos(a) * ex,
-        cy + Math.sin(a) * ey,
-        1,
-        1,
-        withAlpha(P.cyan, 0.2 * k),
-      );
-    }
+    g.strokeStyle = withAlpha(P.cyan, 0.25 * k);
+    g.lineWidth = 0.6;
+    g.setLineDash([1.5, 2]);
+    g.beginPath();
+    g.ellipse(cx + 0.5, cy + 0.5, ex, ey, 0, 0, Math.PI * 2);
+    g.stroke();
+    g.setLineDash([]);
   }
 }
 
@@ -420,15 +530,41 @@ export function moonFace(
   lit: string,
 ): void {
   disc(g, cx, cy, r, withAlpha(P.nightLow, 0.9));
+  // lit limb on one side, the terminator an ellipse across the face
   const c = Math.cos(2 * Math.PI * phase);
+  const ox = cx + 0.5;
+  const oy = cy + 0.5;
+  const R = r + 0.5;
+  g.save();
+  g.translate(ox, oy);
+  if (phase >= 0.5) g.scale(-1, 1);
   g.fillStyle = lit;
-  for (let y = -r; y <= r; y++) {
-    const half = Math.floor(Math.sqrt(r * r - y * y));
-    const term = Math.round(half * c);
-    const [x0, x1] = phase < 0.5 ? [term, half] : [-half, -term];
-    if (x1 > x0)
-      g.fillRect(Math.round(cx + x0), Math.round(cy + y), x1 - x0 + 1, 1);
-  }
+  g.beginPath();
+  g.arc(0, 0, R, -Math.PI / 2, Math.PI / 2);
+  if (c >= 0)
+    g.ellipse(
+      0,
+      0,
+      Math.max(0.01, R * c),
+      R,
+      0,
+      Math.PI / 2,
+      -Math.PI / 2,
+      true,
+    );
+  else
+    g.ellipse(
+      0,
+      0,
+      Math.max(0.01, -R * c),
+      R,
+      0,
+      Math.PI / 2,
+      (Math.PI * 3) / 2,
+    );
+  g.closePath();
+  g.fill();
+  g.restore();
 }
 
 /**
@@ -507,14 +643,54 @@ export function glitch(g: Ctx, t: number, strength: number): void {
     const y = Math.floor(((Math.sin(t * 31 + i * 7.1) + 1) / 2) * H);
     const h = 1 + Math.floor(((Math.sin(t * 17 + i * 3.3) + 1) / 2) * 6);
     const dx = Math.round(Math.sin(t * 23 + i) * 24 * strength);
-    try {
-      const img = g.getImageData(0, y, W, h);
-      g.putImageData(img, dx, y);
-    } catch {
-      /* tainted/unsupported — skip */
-    }
+    // copy the band sideways in device pixels
+    const k = g.getTransform().a;
+    g.save();
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.drawImage(g.canvas, 0, y * k, W * k, h * k, dx * k, y * k, W * k, h * k);
+    g.restore();
     rect(g, 0, y, W, 1, withAlpha(i % 2 ? P.cyan : P.magenta, 0.25 * strength));
   }
+}
+
+type TitleArt = {
+  /** Halo, extruded shadow and lit letters, baked once. */
+  art: HTMLCanvasElement;
+  /** The letter shapes alone, to mask the sheen. */
+  mask: HTMLCanvasElement;
+  /** Scratch canvas the sheen is composited in each frame. */
+  sheen: { canvas: HTMLCanvasElement; g: CanvasRenderingContext2D };
+};
+const titleCache = new Map<string, TitleArt>();
+const PAD = 8;
+
+function titleArt(text: string, color: string, scale: number): TitleArt {
+  const key = `${text}\u0000${color}`;
+  let t = titleCache.get(key);
+  if (t) return t;
+  const w = measure(text) * scale + PAD * 2;
+  const h = 8 * scale + PAD * 2;
+  const letters = (g: Ctx, fill: string, dx: number, dy: number) => {
+    g.save();
+    g.translate(PAD + dx, PAD + dy);
+    g.scale(scale, scale);
+    drawText(g, text, 0, 0, fill);
+    g.restore();
+  };
+  const art = hiCanvas(w, h);
+  // a warm halo, a deep extruded shadow, then the lit letters
+  art.g.save();
+  art.g.shadowColor = withAlpha(color, 0.45);
+  art.g.shadowBlur = 6 * art.g.getTransform().a;
+  letters(art.g, shade(color, -0.45), scale, scale);
+  art.g.restore();
+  letters(art.g, shade(color, -0.25), scale * 0.5, scale * 0.5);
+  letters(art.g, color, 0, 0);
+  const mask = hiCanvas(w, h);
+  letters(mask.g, P.white, 0, 0);
+  t = { art: art.canvas, mask: mask.canvas, sheen: hiCanvas(w, h) };
+  titleCache.set(key, t);
+  return t;
 }
 
 /** Gold "GAME~B" style title lettering, 3× the font, with a sheen. */
@@ -529,56 +705,28 @@ export function bigTitle(
   const scale = 3;
   const w = measure(text) * scale;
   const x0 = Math.round(cx - w / 2);
-  const off = document.createElement("canvas");
-  off.width = measure(text) + 1;
-  off.height = 8;
-  const og = off.getContext("2d")!;
-  drawText(og, text, 0, 0, color);
-  g.imageSmoothingEnabled = false;
-  g.drawImage(
-    off,
-    0,
-    0,
-    off.width,
-    off.height,
-    x0 + scale,
-    y + scale,
-    off.width * scale,
-    off.height * scale,
-  );
-  const sheenX = x0 + ((t * 60) % (w + 40)) - 20;
-  g.save();
-  g.globalCompositeOperation = "source-atop";
-  g.restore();
-  // shadow pass first, then the lit letters on top
-  const og2 = document.createElement("canvas");
-  og2.width = off.width;
-  og2.height = off.height;
-  const gg = og2.getContext("2d")!;
-  drawText(gg, text, 0, 0, P.goldDeep);
-  g.drawImage(
-    og2,
-    0,
-    0,
-    off.width,
-    off.height,
-    x0 + scale,
-    y + scale,
-    off.width * scale,
-    off.height * scale,
-  );
-  g.drawImage(
-    off,
-    0,
-    0,
-    off.width,
-    off.height,
-    x0,
-    y,
-    off.width * scale,
-    off.height * scale,
-  );
-  rect(g, sheenX, y, 2, 8 * scale, withAlpha(P.white, 0.35));
+  const a = titleArt(text, color, scale);
+  const bw = w + PAD * 2;
+  const bh = 8 * scale + PAD * 2;
+  g.drawImage(a.art, x0 - PAD, y - PAD, bw, bh);
+  // the sheen sweeps across inside the letter shapes only
+  const { canvas, g: sg } = a.sheen;
+  sg.save();
+  sg.setTransform(1, 0, 0, 1, 0, 0);
+  sg.globalCompositeOperation = "source-over";
+  sg.clearRect(0, 0, canvas.width, canvas.height);
+  sg.drawImage(a.mask, 0, 0);
+  sg.globalCompositeOperation = "source-in";
+  const k = canvas.width / bw;
+  const sx = (((t * 60) % (w + 40)) - 20 + PAD) * k;
+  const grad = sg.createLinearGradient(sx - 10 * k, 0, sx + 10 * k, 0);
+  grad.addColorStop(0, "rgba(255,255,255,0)");
+  grad.addColorStop(0.5, "rgba(255,255,255,0.7)");
+  grad.addColorStop(1, "rgba(255,255,255,0)");
+  sg.fillStyle = grad;
+  sg.fillRect(0, 0, canvas.width, canvas.height);
+  sg.restore();
+  g.drawImage(canvas, x0 - PAD, y - PAD, bw, bh);
 }
 
 /** Button-like label with a frame; returns its hit rectangle. */
@@ -722,4 +870,33 @@ export function exitChip(g: Ctx): Box {
   });
   // a generous target for thumbs
   return { x: r.x - 6, y: 0, w: r.w + 9, h: r.h + 7 };
+}
+
+/**
+ * What the player answered when Game A whispered through drive `d`, under
+ * the drive's text in the amulet's panel and on the finale's octagon.
+ */
+export function drawAnswer(
+  g: Ctx,
+  tempted: Partial<Record<TemptId, "a" | "b">>,
+  d: DriveId,
+  x: number,
+  y: number,
+  w: number,
+): void {
+  const id = temptationOf(d);
+  const ans = id ? tempted[id] : undefined;
+  if (!id || !ans) return;
+  const tp = TEMPTATIONS[id];
+  const took = ans === "a";
+  drawText(
+    g,
+    took ? TEMPT_UI.took : TEMPT_UI.refused,
+    x,
+    y,
+    took ? P.red : P.gold,
+  );
+  drawParagraph(g, took ? tp.take : tp.refuse, x, y + LINE_H + 2, w, P.paper, {
+    shadow: P.ink,
+  });
 }

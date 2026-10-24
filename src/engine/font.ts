@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// A 5×7 bitmap font drawn by hand, so the game needs no web font and every
-// letter lands on whole pixels. Dialogue is set in capitals like the film;
-// the terminal scene uses the lower case.
+// Text is set in JetBrains Mono, one letter per 6-unit cell (the advance
+// the layout was built on), so every measure, wrap and hit box
+// stays as it was while the letters render as sharp vector type. The 5×7
+// glyph table below stays as the list of characters the story may use (the
+// tests hold the script to it) and as the fallback shape for the few marks
+// (▶ ● ◆ …) drawn as vectors so they sit exactly in the cell. Dialogue is set
+// in capitals like the film; the terminal scene uses the lower case.
 
 export const GLYPH_W = 5;
 export const GLYPH_H = 7;
@@ -207,25 +211,67 @@ export function wrapIndent(
   return out;
 }
 
-const cache = new Map<string, HTMLCanvasElement>();
+// Translucent colours (the pulsing hints, fading "+1"s) are split into
+// colour + alpha and drawn through globalAlpha.
+export function splitAlpha(color: string): [base: string, alpha: number] {
+  const m = /^rgba\(\s*([^,]+),([^,]+),([^,]+),([^)]+)\)$/.exec(color);
+  if (!m) return [color, 1];
+  const a = Number(m[4]);
+  return [
+    `rgb(${m[1]!.trim()},${m[2]!.trim()},${m[3]!.trim()})`,
+    Number.isFinite(a) ? Math.max(0, Math.min(1, a)) : 1,
+  ];
+}
 
-function glyphCanvas(ch: string, color: string): HTMLCanvasElement {
-  const key = `${ch}\u0000${color}`;
-  let c = cache.get(key);
-  if (c) return c;
-  c = document.createElement("canvas");
-  c.width = GLYPH_W;
-  c.height = GLYPH_H;
-  const g = c.getContext("2d")!;
-  g.fillStyle = color;
-  const rows = glyphRows(ch);
-  for (let y = 0; y < GLYPH_H; y++) {
-    const row = rows[y]!;
-    for (let x = 0; x < GLYPH_W; x++)
-      if (row[x] === "#") g.fillRect(x, y, 1, 1);
+export const FONT_FAMILY =
+  '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
+const FONT = `700 9.4px ${FONT_FAMILY}`;
+/** Baseline below the top of the 7-unit cap cell. */
+const BASELINE = 7;
+
+/** Marks drawn as shapes so they fill the cell like the bitmap ones did. */
+function drawMark(
+  ctx: CanvasRenderingContext2D,
+  ch: string,
+  x: number,
+  y: number,
+): boolean {
+  const cx = x + 2.5;
+  const cy = y + 3.5;
+  ctx.beginPath();
+  switch (ch) {
+    case "▶":
+      ctx.moveTo(x + 0.2, y + 0.2);
+      ctx.lineTo(x + 4.6, cy);
+      ctx.lineTo(x + 0.2, y + 6.8);
+      break;
+    case "◀":
+      ctx.moveTo(x + 4.8, y + 0.2);
+      ctx.lineTo(x + 0.4, cy);
+      ctx.lineTo(x + 4.8, y + 6.8);
+      break;
+    case "●":
+      ctx.arc(cx, cy, 2.5, 0, Math.PI * 2);
+      break;
+    case "○":
+      ctx.arc(cx, cy, 2.5, 0, Math.PI * 2);
+      ctx.arc(cx, cy, 1.6, 0, Math.PI * 2, true);
+      break;
+    case "◆":
+      ctx.moveTo(cx, y + 0.2);
+      ctx.lineTo(x + 5, y + 3);
+      ctx.lineTo(cx, y + 5.8);
+      ctx.lineTo(x, y + 3);
+      break;
+    case "▮":
+      ctx.roundRect(x + 1, y + 1, 3, 5, 0.6);
+      break;
+    default:
+      return false;
   }
-  cache.set(key, c);
-  return c;
+  ctx.closePath();
+  ctx.fill();
+  return true;
 }
 
 export type TextOpts = {
@@ -250,13 +296,28 @@ export function drawText(
   let sx = x;
   if (opts.align === "center") sx = Math.round(x - measure(text) / 2);
   else if (opts.align === "right") sx = x - measure(text);
-  for (let i = 0; i < n; i++) {
-    const ch = text[i]!;
-    if (ch === " ") continue;
-    if (opts.shadow)
-      ctx.drawImage(glyphCanvas(ch, opts.shadow), sx + i * ADVANCE + 1, y + 1);
-    ctx.drawImage(glyphCanvas(ch, color), sx + i * ADVANCE, y);
-  }
+  const [base, alpha] = splitAlpha(color);
+  const [shadowBase, shadowAlpha] = opts.shadow
+    ? splitAlpha(opts.shadow)
+    : [null, 1];
+  const prev = ctx.globalAlpha;
+  ctx.font = FONT;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  const pass = (fill: string, a: number, dx: number, dy: number) => {
+    ctx.globalAlpha = prev * a;
+    ctx.fillStyle = fill;
+    for (let i = 0; i < n; i++) {
+      const ch = text[i]!;
+      if (ch === " ") continue;
+      const gx = sx + i * ADVANCE + dx;
+      if (!drawMark(ctx, ch, gx, y + dy))
+        ctx.fillText(ch, gx + 2.5, y + dy + BASELINE);
+    }
+  };
+  if (shadowBase) pass(shadowBase, shadowAlpha, 0.7, 0.7);
+  pass(base, alpha, 0, 0);
+  ctx.globalAlpha = prev;
   return sx + n * ADVANCE;
 }
 

@@ -8,6 +8,7 @@
 // value equation) so the player meets each idea by doing it once.
 
 import type { CharacterId } from "../art/characters";
+import { TEMPT_IDS, type TemptId } from "../story/octalysis";
 import {
   PLAY_OPTIONS,
   PURPOSES,
@@ -82,7 +83,11 @@ export type Tribe = {
   opened: Record<string, Resource>;
   /** What the tribe gave when a partner asked. */
   given: Gift[];
+  /** How each of Game A's whispers was answered: "a" took it, "b" held. */
+  tempted: Partial<Record<TemptId, Answer>>;
 };
+
+export type Answer = "a" | "b";
 
 /** Something the tribe gave to another holon, and the steward who held it. */
 export type Gift = { to: string; res: Resource; by: Steward };
@@ -100,6 +105,7 @@ export function emptyTribe(): Tribe {
     links: [],
     opened: {},
     given: [],
+    tempted: {},
   };
 }
 
@@ -543,5 +549,10 @@ export function reviveTribe(j: unknown): Tribe {
   if (Array.isArray(o.given))
     for (const g of o.given as Record<string, unknown>[])
       if (g && typeof g.to === "string" && isRes(g.res)) giveTo(t, g.to, g.res);
+  if (o.tempted && typeof o.tempted === "object") {
+    const a = o.tempted as Record<string, unknown>;
+    for (const id of TEMPT_IDS)
+      if (a[id] === "a" || a[id] === "b") t.tempted[id] = a[id];
+  }
   return t;
 }

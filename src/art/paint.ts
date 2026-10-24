@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Brushes: small procedural shapes the sceneries are built from. Everything
-// is axis-aligned rectangles and scan-filled polygons so the result stays
-// crisp at 1:1 pixels.
+// Brushes: small procedural shapes the sceneries are built from, drawn as
+// anti-aliased vector paths in logical units so they stay smooth at the
+// screen's native resolution.
 
 import { irand, noise1d, type Rng } from "../engine/rng";
 
@@ -10,7 +10,7 @@ export type Ctx = CanvasRenderingContext2D;
 
 export function px(g: Ctx, x: number, y: number, color: string): void {
   g.fillStyle = color;
-  g.fillRect(Math.round(x), Math.round(y), 1, 1);
+  g.fillRect(x, y, 1, 1);
 }
 
 export function rect(
@@ -22,10 +22,10 @@ export function rect(
   color: string,
 ): void {
   g.fillStyle = color;
-  g.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+  g.fillRect(x, y, w, h);
 }
 
-/** Vertical gradient in `steps` flat bands (pixel art, not a smooth ramp). */
+/** Vertical gradient, top to bottom (`steps` is kept for old callers). */
 export function bands(
   g: Ctx,
   x: number,
@@ -34,20 +34,20 @@ export function bands(
   h: number,
   top: string,
   bottom: string,
-  steps = 8,
+  _steps = 8,
 ): void {
-  const a = hex(top);
-  const b = hex(bottom);
-  for (let i = 0; i < steps; i++) {
-    const f = i / Math.max(1, steps - 1);
-    const c = mix(a, b, f);
-    const y0 = Math.round(y + (h * i) / steps);
-    const y1 = Math.round(y + (h * (i + 1)) / steps);
-    rect(g, x, y0, w, y1 - y0, c);
-  }
+  const grad = g.createLinearGradient(0, y, 0, y + h);
+  grad.addColorStop(0, top);
+  grad.addColorStop(1, bottom);
+  g.fillStyle = grad;
+  g.fillRect(x, y, w, h);
 }
 
 export function hex(c: string): [number, number, number] {
+  if (c.startsWith("rgb")) {
+    const m = c.match(/[\d.]+/g) ?? [];
+    return [Number(m[0] ?? 0), Number(m[1] ?? 0), Number(m[2] ?? 0)];
+  }
   const n = parseInt(c.slice(1), 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
@@ -75,19 +75,23 @@ export function withAlpha(c: string, a: number): string {
   return `rgba(${r},${g},${b},${a})`;
 }
 
+// Shapes keep the footprint the old pixel brushes had: a disc of radius r
+// at (cx, cy) covered the pixels cx-r..cx+r, so it is drawn centred on the
+// middle of that pixel with half a unit more radius.
+
 /** Filled disc. */
 export function disc(
   g: Ctx,
   cx: number,
   cy: number,
   r: number,
-  color: string,
+  color: string | CanvasGradient,
 ): void {
+  if (r <= 0) return;
   g.fillStyle = color;
-  for (let y = -r; y <= r; y++) {
-    const half = Math.floor(Math.sqrt(r * r - y * y));
-    g.fillRect(Math.round(cx - half), Math.round(cy + y), half * 2 + 1, 1);
-  }
+  g.beginPath();
+  g.arc(cx + 0.5, cy + 0.5, r + 0.5, 0, Math.PI * 2);
+  g.fill();
 }
 
 /** Filled ellipse. */
@@ -99,49 +103,30 @@ export function ellipse(
   ry: number,
   color: string,
 ): void {
+  if (rx <= 0 || ry <= 0) return;
   g.fillStyle = color;
-  for (let y = -ry; y <= ry; y++) {
-    const f = Math.sqrt(Math.max(0, 1 - (y * y) / (ry * ry)));
-    const half = Math.floor(rx * f);
-    g.fillRect(Math.round(cx - half), Math.round(cy + y), half * 2 + 1, 1);
-  }
+  g.beginPath();
+  g.ellipse(cx + 0.5, cy + 0.5, rx + 0.5, ry + 0.5, 0, 0, Math.PI * 2);
+  g.fill();
 }
 
-/** Ring (1px). */
+/** Ring, one unit wide. */
 export function ring(
   g: Ctx,
   cx: number,
   cy: number,
   r: number,
   color: string,
+  width = 1,
 ): void {
-  g.fillStyle = color;
-  let x = r;
-  let y = 0;
-  let err = 1 - r;
-  while (x >= y) {
-    const pts = [
-      [x, y],
-      [y, x],
-      [-y, x],
-      [-x, y],
-      [-x, -y],
-      [-y, -x],
-      [y, -x],
-      [x, -y],
-    ];
-    for (const [dx, dy] of pts)
-      g.fillRect(Math.round(cx + dx!), Math.round(cy + dy!), 1, 1);
-    y++;
-    if (err < 0) err += 2 * y + 1;
-    else {
-      x--;
-      err += 2 * (y - x) + 1;
-    }
-  }
+  g.strokeStyle = color;
+  g.lineWidth = width;
+  g.beginPath();
+  g.arc(cx + 0.5, cy + 0.5, Math.max(0.5, r), 0, Math.PI * 2);
+  g.stroke();
 }
 
-/** Line, Bresenham. */
+/** Line, one unit wide, round ends. */
 export function line(
   g: Ctx,
   x0: number,
@@ -149,30 +134,33 @@ export function line(
   x1: number,
   y1: number,
   color: string,
+  width = 1,
 ): void {
-  g.fillStyle = color;
-  x0 = Math.round(x0);
-  y0 = Math.round(y0);
-  x1 = Math.round(x1);
-  y1 = Math.round(y1);
-  const dx = Math.abs(x1 - x0);
-  const dy = -Math.abs(y1 - y0);
-  const sx = x0 < x1 ? 1 : -1;
-  const sy = y0 < y1 ? 1 : -1;
-  let err = dx + dy;
-  for (;;) {
-    g.fillRect(x0, y0, 1, 1);
-    if (x0 === x1 && y0 === y1) break;
-    const e2 = 2 * err;
-    if (e2 >= dy) {
-      err += dy;
-      x0 += sx;
-    }
-    if (e2 <= dx) {
-      err += dx;
-      y0 += sy;
-    }
-  }
+  g.strokeStyle = color;
+  g.lineWidth = width;
+  g.lineCap = "round";
+  g.beginPath();
+  g.moveTo(x0 + 0.5, y0 + 0.5);
+  g.lineTo(x1 + 0.5, y1 + 0.5);
+  g.stroke();
+}
+
+/** Soft radial glow: `color` at the centre fading out by radius r. */
+export function glow(
+  g: Ctx,
+  cx: number,
+  cy: number,
+  r: number,
+  color: string,
+  alpha = 0.5,
+): void {
+  if (r <= 0 || alpha <= 0) return;
+  const grad = g.createRadialGradient(cx, cy, 0, cx, cy, r);
+  grad.addColorStop(0, withAlpha(color, alpha));
+  grad.addColorStop(0.4, withAlpha(color, alpha * 0.45));
+  grad.addColorStop(1, withAlpha(color, 0));
+  g.fillStyle = grad;
+  g.fillRect(cx - r, cy - r, r * 2, r * 2);
 }
 
 /** Triangle (isoceles, apex up) — pines, pyramids, hut roofs. */
@@ -184,17 +172,14 @@ export function tri(
   h: number,
   color: string,
 ): void {
+  if (h <= 0) return;
   g.fillStyle = color;
-  for (let i = 0; i < h; i++) {
-    const f = i / h;
-    const half = Math.round((w / 2) * f);
-    g.fillRect(
-      Math.round(cx - half),
-      Math.round(baseY - h + i),
-      half * 2 + 1,
-      1,
-    );
-  }
+  g.beginPath();
+  g.moveTo(cx + 0.5, baseY - h);
+  g.lineTo(cx + 0.5 + w / 2, baseY);
+  g.lineTo(cx + 0.5 - w / 2, baseY);
+  g.closePath();
+  g.fill();
 }
 
 /** A ridge: fill below a noisy skyline from x=0..w, down to `toY`. */
@@ -210,12 +195,14 @@ export function ridge(
 ): number[] {
   const n = noise1d(seed, w, detail);
   const ys: number[] = [];
+  for (let x = 0; x < w; x++) ys.push(Math.round(baseY - n(x) * amp));
   g.fillStyle = color;
-  for (let x = 0; x < w; x++) {
-    const y = Math.round(baseY - n(x) * amp);
-    ys.push(y);
-    g.fillRect(x, y, 1, toY - y);
-  }
+  g.beginPath();
+  g.moveTo(0, toY);
+  for (let x = 0; x <= w; x += 0.5) g.lineTo(x, baseY - n(x) * amp);
+  g.lineTo(w, toY);
+  g.closePath();
+  g.fill();
   return ys;
 }
 
@@ -250,7 +237,7 @@ export function roundTree(
   trunk: string,
   shadeC?: string,
 ): void {
-  rect(g, x - 1, baseY - r, 3, r + 1, trunk);
+  rect(g, x - 0.5, baseY - r, 2.5, r + 1, trunk);
   disc(g, x, baseY - r - r * 0.6, r, canopy);
   disc(g, x - r * 0.6, baseY - r - r * 0.2, r * 0.7, canopy);
   disc(g, x + r * 0.6, baseY - r - r * 0.3, r * 0.7, canopy);
@@ -357,18 +344,40 @@ export function dome(
   fill: string,
   lattice: string,
 ): void {
+  const ox = cx + 0.5;
+  const oy = baseY + 1;
+  g.save();
+  g.beginPath();
+  g.arc(ox, oy, r + 0.5, Math.PI, 0);
+  g.closePath();
   g.fillStyle = fill;
-  for (let y = -r; y <= 0; y++) {
-    const half = Math.floor(Math.sqrt(r * r - y * y));
-    g.fillRect(cx - half, baseY + y, half * 2 + 1, 1);
-  }
+  g.fill();
+  g.clip();
+  const sheen = g.createRadialGradient(
+    ox - r * 0.4,
+    oy - r * 0.7,
+    0,
+    ox,
+    oy,
+    r * 1.2,
+  );
+  sheen.addColorStop(0, "rgba(255,255,255,0.35)");
+  sheen.addColorStop(1, "rgba(255,255,255,0)");
+  g.fillStyle = sheen;
+  g.fillRect(ox - r - 1, oy - r - 1, r * 2 + 2, r + 2);
+  g.strokeStyle = lattice;
+  g.lineWidth = 0.6;
+  g.beginPath();
   for (let y = -r; y <= 0; y += 5) {
-    const half = Math.floor(Math.sqrt(r * r - y * y));
-    rect(g, cx - half, baseY + y, half * 2 + 1, 1, lattice);
+    g.moveTo(ox - r - 1, oy + y);
+    g.lineTo(ox + r + 1, oy + y);
   }
-  for (let a = 0; a <= Math.PI; a += Math.PI / 7) {
-    line(g, cx, baseY, cx + Math.cos(a) * r, baseY - Math.sin(a) * r, lattice);
+  for (let a = 0; a <= Math.PI + 1e-6; a += Math.PI / 7) {
+    g.moveTo(ox, oy);
+    g.lineTo(ox + Math.cos(a) * (r + 1), oy - Math.sin(a) * (r + 1));
   }
+  g.stroke();
+  g.restore();
 }
 
 /** Pointy-top hexagon outline/fill at centre, radius r. */
@@ -380,43 +389,36 @@ export function hexagon(
   fill: string | null,
   stroke: string | null,
 ): void {
-  const pts: [number, number][] = [];
+  g.beginPath();
   for (let i = 0; i < 6; i++) {
     const a = (Math.PI / 180) * (60 * i - 30);
-    pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+    const x = cx + 0.5 + r * Math.cos(a);
+    const y = cy + 0.5 + r * Math.sin(a);
+    if (i === 0) g.moveTo(x, y);
+    else g.lineTo(x, y);
   }
-  if (fill) polygon(g, pts, fill);
+  g.closePath();
+  if (fill) {
+    g.fillStyle = fill;
+    g.fill();
+  }
   if (stroke) {
-    for (let i = 0; i < 6; i++) {
-      const a = pts[i]!;
-      const b = pts[(i + 1) % 6]!;
-      line(g, a[0], a[1], b[0], b[1], stroke);
-    }
+    g.strokeStyle = stroke;
+    g.lineWidth = 0.75;
+    g.lineJoin = "round";
+    g.stroke();
   }
 }
 
-/** Scanline-filled polygon. */
+/** Filled polygon. */
 export function polygon(g: Ctx, pts: [number, number][], color: string): void {
+  if (pts.length < 3) return;
   g.fillStyle = color;
-  const ys = pts.map((p) => p[1]);
-  const y0 = Math.ceil(Math.min(...ys));
-  const y1 = Math.floor(Math.max(...ys));
-  for (let y = y0; y <= y1; y++) {
-    const xs: number[] = [];
-    for (let i = 0; i < pts.length; i++) {
-      const a = pts[i]!;
-      const b = pts[(i + 1) % pts.length]!;
-      if ((a[1] <= y && b[1] > y) || (b[1] <= y && a[1] > y)) {
-        xs.push(a[0] + ((y - a[1]) * (b[0] - a[0])) / (b[1] - a[1]));
-      }
-    }
-    xs.sort((p, q) => p - q);
-    for (let i = 0; i + 1 < xs.length; i += 2) {
-      const xa = Math.round(xs[i]!);
-      const xb = Math.round(xs[i + 1]!);
-      g.fillRect(xa, y, Math.max(1, xb - xa), 1);
-    }
-  }
+  g.beginPath();
+  g.moveTo(pts[0]![0], pts[0]![1]);
+  for (let i = 1; i < pts.length; i++) g.lineTo(pts[i]![0], pts[i]![1]);
+  g.closePath();
+  g.fill();
 }
 
 /** Tiny standing person (for crowds). */
@@ -427,10 +429,16 @@ export function figure(
   body: string,
   head: string,
 ): void {
-  rect(g, x, baseY - 5, 2, 3, body);
-  rect(g, x, baseY - 2, 1, 2, body);
-  rect(g, x + 1, baseY - 2, 1, 2, body);
-  rect(g, x, baseY - 7, 2, 2, head);
+  g.fillStyle = body;
+  g.beginPath();
+  g.roundRect(x, baseY - 5, 2, 3.2, 0.8);
+  g.fill();
+  rect(g, x + 0.1, baseY - 2.2, 0.8, 2.2, body);
+  rect(g, x + 1.1, baseY - 2.2, 0.8, 2.2, body);
+  g.fillStyle = head;
+  g.beginPath();
+  g.arc(x + 1, baseY - 6.1, 1.1, 0, Math.PI * 2);
+  g.fill();
 }
 
 /** Flame: flickers with t. */
@@ -445,13 +453,29 @@ export function flame(
 ): void {
   const f =
     0.75 + 0.25 * Math.sin(t * 13 + seed) * Math.cos(t * 7.3 + seed * 2);
-  tri(g, x, baseY, w, Math.round(h * f), "#ff7a2a");
-  tri(
-    g,
-    x + Math.round(Math.sin(t * 9 + seed)),
-    baseY,
-    Math.round(w * 0.55),
-    Math.round(h * f * 0.6),
-    "#ffd36a",
-  );
+  const fh = h * f;
+  const sway = Math.sin(t * 9 + seed) * w * 0.15;
+  glow(g, x + 0.5, baseY - fh * 0.4, Math.max(w, h) * 1.6, "#ff9a3a", 0.35);
+  const tongue = (hw: number, th: number, color: string) => {
+    g.fillStyle = color;
+    g.beginPath();
+    g.moveTo(x + 0.5 - hw, baseY);
+    g.quadraticCurveTo(
+      x + 0.5 - hw * 1.1,
+      baseY - th * 0.45,
+      x + 0.5 + sway,
+      baseY - th,
+    );
+    g.quadraticCurveTo(
+      x + 0.5 + hw * 1.1,
+      baseY - th * 0.45,
+      x + 0.5 + hw,
+      baseY,
+    );
+    g.closePath();
+    g.fill();
+  };
+  tongue(w / 2, fh, "#ff7a2a");
+  tongue(w * 0.3, fh * 0.62, "#ffd36a");
+  tongue(w * 0.12, fh * 0.3, "#fff4d0");
 }

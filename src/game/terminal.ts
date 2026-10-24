@@ -95,7 +95,6 @@ export class TerminalScene implements Scene {
     const last = this.lines[this.lines.length - 1];
     if (last && last.typing && last.shown < last.text.length) {
       last.shown += dt * 40;
-      if (Math.floor(last.shown) % 2 === 0) this.s.audio.blip(1200);
       if (last.shown >= last.text.length) last.shown = last.text.length;
       if (adv && this.mode !== "ask") last.shown = last.text.length;
       return;

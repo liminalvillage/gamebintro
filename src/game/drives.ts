@@ -3,9 +3,16 @@
 // Which Octalysis drives the sandbox tribe has woken, read off the tribe
 // itself (nothing extra is saved): a play counts once what it builds is
 // there, and a drive is as full as the share of its plays that are done.
+// A whisper of Game A the tribe gave in to marks its drive as pulled.
 
 import { PLAY_IDS, type PlayId } from "../story/holons";
-import { DRIVE_IDS, PLAY_DRIVES, type DriveId } from "../story/octalysis";
+import {
+  DRIVE_IDS,
+  PLAY_DRIVES,
+  TEMPT_IDS,
+  TEMPTATIONS,
+  type DriveId,
+} from "../story/octalysis";
 import { allSeated, type Tribe } from "./tribe";
 
 /** True once the tribe holds what the play leaves behind. */
@@ -41,4 +48,11 @@ export function driveLevels(t: Tribe): Record<DriveId, number> {
     out[d] = plays.length ? done / plays.length : 0;
   }
   return out;
+}
+
+/** The drives Game A pulled from below: the whispers the tribe gave in to. */
+export function pulledDrives(t: Tribe): DriveId[] {
+  return TEMPT_IDS.filter((id) => t.tempted[id] === "a").map(
+    (id) => TEMPTATIONS[id].drive,
+  );
 }

@@ -1,18 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// The cast, as hand-placed pixels. Four travellers face right; each has a
-// standing frame and a stride frame. Portraits are the faces in the dialogue
-// box. All original drawings in the spirit of the film's cast: the Pioneer in
-// her white top, the masked Sage with the orb staff, the bearded Chief with
-// the crystal sword, the Matriarch on her cloud with the crystal crown.
+// The cast. The pixel maps below are the original drawings, in the spirit
+// of the film's cast: the Pioneer in her white top, the masked Sage with the
+// orb staff, the bearded Chief with the crystal sword, the Matriarch on her
+// cloud with the crystal crown. They fix each figure's box and proportions
+// (the tests keep them tidy); what appears on screen is the same cast
+// painted as vector illustration in ./cast.ts.
 
 import { P } from "./palette";
-import {
-  rasterise,
-  strideRows,
-  type PixelMap,
-  type Sprite,
-} from "../engine/sprite";
+import type { PixelMap, Sprite } from "../engine/sprite";
+import { paintActor, paintPortrait } from "./cast";
 
 export type CharacterId =
   "pioneer" | "sage" | "chief" | "matriarch" | "parasite";
@@ -314,33 +311,16 @@ let actors: Record<Exclude<CharacterId, "parasite">, Actor> | null = null;
 
 export function getActors(): Record<Exclude<CharacterId, "parasite">, Actor> {
   if (actors) return actors;
-  const mk = (
-    id: Exclude<CharacterId, "parasite">,
-    map: PixelMap,
-    legStart: number,
-    split: number,
-    floats = false,
-  ): Actor => {
-    const stand = rasterise(map);
-    const stride = floats
-      ? stand
-      : rasterise({
-          rows: strideRows(map.rows, legStart, split),
-          key: map.key,
-        });
+  const mk = (id: Exclude<CharacterId, "parasite">, floats = false): Actor => {
+    const stand = paintActor(id, { stride: 0 });
+    const stride = floats ? stand : paintActor(id, { stride: 1 });
     return { id, stand, stride, h: stand.h, w: stand.w, floats };
   };
   actors = {
-    pioneer: mk("pioneer", { rows: PIONEER_ROWS, key: pioneerKey }, 25, 6),
-    chief: mk("chief", { rows: CHIEF_ROWS, key: chiefKey }, 32, 11),
-    sage: mk("sage", { rows: SAGE_ROWS, key: sageKey }, 44, 9, true),
-    matriarch: mk(
-      "matriarch",
-      { rows: MATRIARCH_ROWS, key: matriarchKey },
-      0,
-      0,
-      true,
-    ),
+    pioneer: mk("pioneer"),
+    chief: mk("chief"),
+    sage: mk("sage", true),
+    matriarch: mk("matriarch", true),
   };
   return actors;
 }
@@ -511,7 +491,7 @@ const portraitCache = new Map<CharacterId, Sprite>();
 export function portrait(id: CharacterId): Sprite {
   let s = portraitCache.get(id);
   if (!s) {
-    s = rasterise(PORTRAITS[id]);
+    s = paintPortrait(id);
     portraitCache.set(id, s);
   }
   return s;

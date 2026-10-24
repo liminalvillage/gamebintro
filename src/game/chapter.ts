@@ -31,6 +31,7 @@ import {
   dialogue,
   driveAt,
   driveColor,
+  drawAnswer,
   driveLabels,
   exitChip,
   fade,
@@ -56,9 +57,13 @@ import {
   DRIVE_IDS,
   DRIVES,
   PLAY_DRIVES,
+  TEMPT_UI,
+  TEMPTATIONS,
   type DriveId,
+  type TemptId,
 } from "../story/octalysis";
-import { driveLevels } from "./drives";
+import { driveLevels, pulledDrives } from "./drives";
+import type { Answer } from "./tribe";
 import { lunationAt, phaseBand } from "./lunation";
 import { FinaleScene } from "./finale";
 import {
@@ -137,6 +142,8 @@ const AMULET_BIG = { x: 112, y: 106, r: 44 };
 /** The panel's text column, right of the big amulet's labels. */
 const COL = { x: 236, w: W - 236 - 12 };
 
+type Box = { x: number; y: number; w: number; h: number };
+
 /** Whether the amulet has been opened yet (it beckons until it has). */
 let amuletOpened = false;
 
@@ -176,6 +183,12 @@ export class ChapterScene implements Scene {
     d: DriveId;
     box: { x: number; y: number; w: number; h: number };
   }[] = [];
+  /** Game A's whisper in play: typed, answered, then a steward replies. */
+  private tempt: { id: TemptId; answer: Answer | null } | null = null;
+  private temptBtns: { a: Box; b: Box } = {
+    a: { x: 0, y: 0, w: 0, h: 0 },
+    b: { x: 0, y: 0, w: 0, h: 0 },
+  };
   private cardShown = 0;
   private fadeIn = 1;
   private fadeOut = -1;
@@ -260,6 +273,11 @@ export class ChapterScene implements Scene {
       // the act's opening question is for players who skipped the intro;
       // whoever already chose a wisdom walks straight on
       if (this.s.state.role) this.next();
+    } else if ("tempt" in b) {
+      this.tempt = { id: b.tempt, answer: null };
+      this.parasiteTarget = 14;
+      this.s.audio.sting();
+      this.shake = 1;
     } else if ("play" in b) {
       this.play = createPlay(b.play, this.s);
       this.play.enter?.();
@@ -378,14 +396,15 @@ export class ChapterScene implements Scene {
     if ("say" in b) {
       const total = b.text.length;
       if (this.shown < total) {
-        const before = Math.floor(this.shown);
         this.shown = Math.min(total, this.shown + dt * TYPE_SPEED);
-        if (Math.floor(this.shown) !== before && b.text[before] !== " ")
-          this.s.audio.blip(CAST[b.say].voice);
         if (adv) this.shown = total;
       } else if (adv) {
         this.next();
       }
+      return;
+    }
+    if ("tempt" in b && this.tempt) {
+      this.runTempt(this.tempt, dt, taps, keys, adv);
       return;
     }
     if ("walk" in b) {
@@ -607,6 +626,65 @@ export class ChapterScene implements Scene {
     }
   }
 
+  /**
+   * Game A's whisper: the parasite's line types out, then the two answers
+   * wait (1 or 2). Taking it swells the parasite and dims the wisdoms, and
+   * marks the drive as pulled from below; holding it shrinks the parasite.
+   * Either way a steward names the drive, and a tap goes on.
+   */
+  private runTempt(
+    tm: { id: TemptId; answer: Answer | null },
+    dt: number,
+    taps: { x: number; y: number }[],
+    keys: string[],
+    adv: boolean,
+  ): void {
+    const tp = TEMPTATIONS[tm.id];
+    const text = tm.answer
+      ? tm.answer === "a"
+        ? tp.took
+        : tp.refused
+      : tp.whisper;
+    if (this.shown < text.length) {
+      this.shown = Math.min(text.length, this.shown + dt * TYPE_SPEED);
+      if (adv) this.shown = text.length;
+      return;
+    }
+    if (tm.answer) {
+      if (adv) {
+        this.tempt = null;
+        this.parasiteTarget = 0;
+        this.next();
+      }
+      return;
+    }
+    let pick: Answer | null = null;
+    if (keys.includes("1")) pick = "a";
+    if (keys.includes("2")) pick = "b";
+    for (const p of taps) {
+      if (inRect(p, this.temptBtns.a)) pick = "a";
+      if (inRect(p, this.temptBtns.b)) pick = "b";
+    }
+    if (!pick) return;
+    tm.answer = pick;
+    this.s.state.tribe.tempted[tm.id] = pick;
+    saveState(this.s.state);
+    this.shown = 0;
+    const w = this.s.state.wisdom;
+    if (pick === "a") {
+      this.parasiteTarget = 22;
+      this.shake = 1;
+      this.s.audio.sting();
+      for (const k of ["mind", "heart", "body"] as const)
+        w[k] = Math.max(0.05, w[k] - 0.35);
+    } else {
+      this.parasiteTarget = 4;
+      this.s.audio.chime();
+      for (const k of ["mind", "heart", "body"] as const)
+        w[k] = Math.min(1, w[k] + 0.15);
+    }
+  }
+
   /** In the act the talisman is woken as the amulet. */
   private get hasAmulet(): boolean {
     return this.index >= HOLONS_ACT_START && this.s.state.talisman;
@@ -719,8 +797,11 @@ export class ChapterScene implements Scene {
         const s = 0.5 + 0.5 * Math.sin(t * 4);
         ring(g, ax, ay, ar + 2 + Math.round(s * 2), withAlpha(P.gold, 0.5 * s));
       }
+      const whispered = this.tempt ? TEMPTATIONS[this.tempt.id].drive : null;
       amulet(g, ax, ay, ar, driveLevels(this.s.state.tribe), t, {
-        lit: this.lit?.drives,
+        lit: whispered ? [whispered] : this.lit?.drives,
+        focus: whispered,
+        pulled: pulledDrives(this.s.state.tribe),
       });
       this.amuletBtn = {
         x: ax - ar - 4,
@@ -745,6 +826,7 @@ export class ChapterScene implements Scene {
       );
     }
 
+    if (b && "tempt" in b && this.tempt) this.drawTempt(g, t, this.tempt);
     if (b && "say" in b)
       dialogue(
         g,
@@ -769,6 +851,40 @@ export class ChapterScene implements Scene {
     if (this.fadeOut >= 0) fade(g, this.fadeOut);
     if (this.panel) return this.drawPanel(g, t, this.panel.d);
     this.exitBtn = exitChip(g);
+  }
+
+  /** The whisper (or the steward's answer), and the two answers to pick. */
+  private drawTempt(
+    g: CanvasRenderingContext2D,
+    t: number,
+    tm: { id: TemptId; answer: Answer | null },
+  ): void {
+    const tp = TEMPTATIONS[tm.id];
+    const blink = Math.floor(t * 2) % 2 === 0;
+    const drive = DRIVES[tp.drive];
+    if (tm.answer) {
+      const text = tm.answer === "a" ? tp.took : tp.refused;
+      dialogue(g, tp.by, text, Math.floor(this.shown), blink);
+      const label =
+        tm.answer === "a"
+          ? `${TEMPT_UI.took} ${drive.short}`
+          : `${TEMPT_UI.refused} ${drive.short}`;
+      const col = tm.answer === "a" ? P.red : P.gold;
+      rect(g, W / 2 - 100, 132, 200, 13, withAlpha(P.ink, 0.75));
+      drawText(g, label, W / 2, 135, col, { align: "center", shadow: P.ink });
+      return;
+    }
+    dialogue(g, "parasite", tp.whisper, Math.floor(this.shown), blink);
+    rect(g, W / 2 - 80, 30, 160, 13, withAlpha(P.ink, 0.75));
+    drawText(g, `${TEMPT_UI.pulls} ${drive.short}`, W / 2, 33, P.red, {
+      align: "center",
+      shadow: P.ink,
+    });
+    if (this.shown < tp.whisper.length) return;
+    this.temptBtns = {
+      a: button(g, `1 ${tp.take}`, Math.round(W / 4) + 6, 128, false, P.red),
+      b: button(g, `2 ${tp.refuse}`, Math.round((3 * W) / 4) - 6, 128, true),
+    };
   }
 
   /** The talisman turning into the eight-faced amulet, mid-screen. */
@@ -798,8 +914,9 @@ export class ChapterScene implements Scene {
     });
     const lv = driveLevels(this.s.state.tribe);
     const { x, y, r } = AMULET_BIG;
-    amulet(g, x, y, r, lv, t, { focus: d, lit: this.lit?.drives });
-    this.faceBoxes = driveLabels(g, x, y, r, lv, d);
+    const pulled = pulledDrives(this.s.state.tribe);
+    amulet(g, x, y, r, lv, t, { focus: d, lit: this.lit?.drives, pulled });
+    this.faceBoxes = driveLabels(g, x, y, r, lv, d, pulled);
     const drive = DRIVES[d];
     let ty = 44;
     drawText(g, drive.short, COL.x, ty, driveColor(d), { shadow: P.ink });
@@ -815,6 +932,8 @@ export class ChapterScene implements Scene {
       ty,
       withAlpha(lv[d] > 0 ? P.gold : P.paper, lv[d] > 0 ? 1 : 0.5),
     );
+    ty += LINE_H + 4;
+    drawAnswer(g, this.s.state.tribe.tempted, d, COL.x, ty, COL.w);
     drawText(g, AMULET.tap, x, H - 30, withAlpha(P.paper, 0.6), {
       align: "center",
     });

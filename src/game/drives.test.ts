@@ -105,3 +105,22 @@ describe("drives the tribe woke", () => {
     for (const d of DRIVE_IDS) expect(lv[d]).toBe(1);
   });
 });
+
+describe("Game A's whispers", () => {
+  it("marks only the drives the tribe gave in to, and survives a reload", async () => {
+    const { reviveTribe } = await import("./tribe");
+    const { pulledDrives } = await import("./drives");
+    const { TEMPTATIONS } = await import("../story/octalysis");
+    const t = emptyTribe();
+    expect(pulledDrives(t)).toEqual([]);
+    t.tempted.grab = "a";
+    t.tempted.shut = "b";
+    expect(pulledDrives(t)).toEqual([TEMPTATIONS.grab.drive]);
+    const back = reviveTribe(
+      JSON.parse(
+        JSON.stringify({ ...t, tempted: { ...t.tempted, rank: "x" } }),
+      ),
+    );
+    expect(back.tempted).toEqual({ grab: "a", shut: "b" });
+  });
+});

@@ -5,12 +5,13 @@
 // when it is done it names the idea in a ribbon and waits for a tap.
 
 import type { Tap } from "../../engine/input";
-import { drawParagraph, drawText } from "../../engine/font";
+import { drawParagraph, drawText, measure } from "../../engine/font";
 import { H, W } from "../../engine/screen";
 import { P } from "../../art/palette";
 import { hexagon, rect, withAlpha, type Ctx } from "../../art/paint";
-import { frame, hint } from "../../art/ui";
+import { driveColor, frame, hint } from "../../art/ui";
 import { PLAY_MEANS, type PlayId } from "../../story/holons";
+import { DRIVES, PLAY_DRIVES, TEMPT_UI } from "../../story/octalysis";
 import { saveState } from "../state";
 import type { Services } from "../types";
 
@@ -85,6 +86,19 @@ export abstract class PlayBase implements Play {
       );
     drawText(g, info.title, 62, y + 10, P.gold, { shadow: P.ink });
     drawParagraph(g, info.line, 62, y + 24, W - 32 - 56, P.paper);
+    // the amulet faces this play just woke, each in its hat's colour
+    const words = [
+      TEMPT_UI.woke,
+      ...PLAY_DRIVES[this.id].map((d) => DRIVES[d].short),
+    ];
+    const total = words.reduce((s, w) => s + measure(w) + 8, -8);
+    let x = Math.round(W / 2 - total / 2);
+    rect(g, x - 6, y + h + 3, total + 12, 13, withAlpha(P.ink, 0.85));
+    words.forEach((w, i) => {
+      const c = i === 0 ? P.paper : driveColor(PLAY_DRIVES[this.id][i - 1]!);
+      drawText(g, w, x, y + h + 6, c);
+      x += measure(w) + 8;
+    });
     if (this.ribbon > 0.8) hint(g, "TAP ▶", t);
   }
 }
