@@ -10,7 +10,9 @@
 import type { CharacterId } from "../art/characters";
 import {
   PLAY_OPTIONS,
+  PURPOSES,
   RESOURCES,
+  type Purpose,
   type Resource,
   type Wisdom,
 } from "../story/holons";
@@ -63,6 +65,8 @@ export type Equation = Record<EquationKey, number>;
 
 export type Tribe = {
   name: string | null;
+  /** What the holon is for, chosen right after its name. */
+  purpose: Purpose | null;
   /** Wisdoms whose steward has taken their seat. */
   seated: Wisdom[];
   quests: Quest[];
@@ -86,6 +90,7 @@ export type Gift = { to: string; res: Resource; by: Steward };
 export function emptyTribe(): Tribe {
   return {
     name: null,
+    purpose: null,
     seated: [],
     quests: [],
     needs: [],
@@ -106,6 +111,18 @@ export function foundTribe(t: Tribe, name: string): boolean {
   if (!n) return false;
   t.name = n;
   return true;
+}
+
+export function choosePurpose(t: Tribe, p: Purpose): void {
+  t.purpose = p;
+}
+
+/** The suggested needs, the one the purpose leans on first. */
+export function suggestedNeeds(t: Tribe): typeof PLAY_OPTIONS.needs {
+  const lead = t.purpose ? PURPOSES[t.purpose].need : null;
+  return [...PLAY_OPTIONS.needs].sort(
+    (a, b) => Number(b.res === lead) - Number(a.res === lead),
+  );
 }
 
 export function seatRole(t: Tribe, w: Wisdom): void {
@@ -463,6 +480,8 @@ export function reviveTribe(j: unknown): Tribe {
   if (!j || typeof j !== "object") return t;
   const o = j as Record<string, unknown>;
   if (typeof o.name === "string" && o.name.trim()) foundTribe(t, o.name);
+  if (typeof o.purpose === "string" && o.purpose in PURPOSES)
+    choosePurpose(t, o.purpose as Purpose);
   if (Array.isArray(o.seated))
     for (const w of o.seated)
       if (w === "mind" || w === "heart" || w === "body") seatRole(t, w);

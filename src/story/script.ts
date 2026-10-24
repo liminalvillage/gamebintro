@@ -9,11 +9,11 @@ import type { CharacterId } from "../art/characters";
 import type { SceneryId } from "../art/scenery";
 import type { MoodId } from "../engine/music";
 import type { RoamId } from "../game/roam";
-import type { PlayId } from "./holons";
+import type { PlayId, Purpose } from "./holons";
 
 export type Beat =
-  /** A line of dialogue. */
-  | { say: CharacterId; text: string }
+  /** A line of dialogue; with `when`, only for a holon of that purpose. */
+  | { say: CharacterId; text: string; when?: Purpose }
   /** The party walks right for `px` pixels; the player holds → / the right half. */
   | { walk: number }
   /** The pioneer roams free: gather, carry, dodge, plant (see game/roam). */
@@ -518,9 +518,29 @@ export const CHAPTERS: Chapter[] = [
       },
       {
         say: "chief",
-        text: "Every holon begins with a name. What shall we call ours?",
+        text: "Every holon begins with a name, and a reason to exist. What shall we call ours, and what is it for?",
       },
       { play: "found" },
+      {
+        say: "sage",
+        when: "land",
+        text: "To heal the land. Then we begin where the soil is tired, and plant what our grandchildren will eat.",
+      },
+      {
+        say: "matriarch",
+        when: "warm",
+        text: "To keep us warm. Then no one in this valley spends the winter alone, or out in the cold.",
+      },
+      {
+        say: "chief",
+        when: "feed",
+        text: "To feed everyone. Then the harvest is not ours until it reaches every table in the valley.",
+      },
+      {
+        say: "matriarch",
+        when: "gather",
+        text: "To gather people. Then our fire is lit for strangers too, and every market day is a festival.",
+      },
       {
         say: "sage",
         text: "Now the roles. In the first game all players had to be present, and respect each other's roles. Nothing has changed.",
@@ -533,6 +553,26 @@ export const CHAPTERS: Chapter[] = [
       {
         say: "chief",
         text: "This winter was hard. The river moved, the old orchard failed, and the barn roof gave way. Each of us is missing something.",
+      },
+      {
+        say: "sage",
+        when: "land",
+        text: "And we said we would heal the land. The orchard will need seeds before the spring.",
+      },
+      {
+        say: "matriarch",
+        when: "warm",
+        text: "And we said we would keep each other warm. The barn is where the newcomers slept.",
+      },
+      {
+        say: "chief",
+        when: "feed",
+        text: "And we said we would feed everyone. The harvest is ripe, but the tables are far.",
+      },
+      {
+        say: "matriarch",
+        when: "gather",
+        text: "And we said we would gather people. Market day is coming, and our hands are few.",
       },
       {
         say: "matriarch",

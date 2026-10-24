@@ -7,6 +7,7 @@ import {
   appreciate,
   askNeed,
   borrow,
+  choosePurpose,
   completeQuest,
   emptyTribe,
   evenEquation,
@@ -29,9 +30,11 @@ import {
   returnItem,
   reviveTribe,
   seatRole,
+  suggestedNeeds,
   tally,
   type Equation,
 } from "./tribe";
+import { PLAY_OPTIONS, PURPOSE_IDS, PURPOSES } from "../story/holons";
 
 const sum = (e: Equation) => EQUATION_KEYS.reduce((s, k) => s + e[k], 0);
 
@@ -44,6 +47,19 @@ describe("founding and seating", () => {
     expect(t.name).toBe("river tribe");
     foundTribe(t, "A".repeat(40));
     expect(t.name!.length).toBe(18);
+  });
+
+  it("leads the need board with what its purpose needs", () => {
+    const t = emptyTribe();
+    expect(suggestedNeeds(t).map((n) => n.res)).toEqual(
+      PLAY_OPTIONS.needs.map((n) => n.res),
+    );
+    for (const p of PURPOSE_IDS) {
+      choosePurpose(t, p);
+      const board = suggestedNeeds(t);
+      expect(board[0]!.res, p).toBe(PURPOSES[p].need);
+      expect(board).toHaveLength(PLAY_OPTIONS.needs.length);
+    }
   });
 
   it("seats each wisdom once and knows when all three sit", () => {
@@ -266,6 +282,7 @@ describe("saving", () => {
   it("revives what it saved and drops garbage", () => {
     const t = emptyTribe();
     foundTribe(t, "LIMINAL");
+    choosePurpose(t, "gather");
     seatRole(t, "heart");
     const q = postQuest(t, "WELCOME THE NEWCOMERS", "heart");
     inviteHelper(q, "matriarch");
@@ -285,6 +302,7 @@ describe("saving", () => {
     expect(
       reviveTribe({
         name: 7,
+        purpose: "conquer",
         seated: ["x"],
         quests: [{ title: 1 }],
         equation: { hours: 50, money: 50, participation: 50, appreciation: 50 },

@@ -12,7 +12,13 @@ import { P } from "../../art/palette";
 import { rect, withAlpha, type Ctx } from "../../art/paint";
 import { hint, inRect, kioskCard, pill } from "../../art/ui";
 import { PLAY_OPTIONS, RESOURCES } from "../../story/holons";
-import { askNeed, NEED_MAX, type Need, type Steward } from "../tribe";
+import {
+  askNeed,
+  NEED_MAX,
+  suggestedNeeds,
+  type Need,
+  type Steward,
+} from "../tribe";
 import type { Services } from "../types";
 import { PlayBase, type PlayInput } from "./types";
 
@@ -65,7 +71,7 @@ export class AskPlay extends PlayBase {
     for (const tap of inp.taps) {
       for (const c of this.chips)
         if (inRect(tap, c.r)) {
-          const o = PLAY_OPTIONS.needs[c.i]!;
+          const o = suggestedNeeds(this.s.state.tribe)[c.i]!;
           return this.ask(o.text, o.res);
         }
       if (inRect(tap, this.askBtn)) return this.ask(this.text);
@@ -179,10 +185,12 @@ export class AskPlay extends PlayBase {
     drawText(g, "OR ONE OF THESE:", X + 8, y, withAlpha(P.paper, 0.6));
     y += 11;
     this.chips = [];
-    PLAY_OPTIONS.needs.forEach((n, i) => {
+    suggestedNeeds(this.s.state.tribe).forEach((n, i) => {
       const cx = X + 8 + (i % 2) * 150;
       const cy = y + Math.floor(i / 2) * 17;
-      this.chips.push({ r: pill(g, n.text, cx, cy, false), i });
+      // the need the holon's purpose leans on is lit first
+      const lead = i === 0 && !!this.s.state.tribe.purpose;
+      this.chips.push({ r: pill(g, n.text, cx, cy, lead), i });
     });
     this.askBtn = pill(
       g,

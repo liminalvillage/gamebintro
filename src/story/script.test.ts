@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from "vitest";
 import { CHAPTERS, HOLONS_ACT_START, SCALES } from "./script";
-import { PLAY_IDS } from "./holons";
+import { PLAY_IDS, PLAY_OPTIONS, PURPOSE_IDS, PURPOSES } from "./holons";
 import { CAST } from "../art/characters";
 import { wrap } from "../engine/font";
 
@@ -153,5 +153,19 @@ describe("the script", () => {
       (b) => "say" in b && b.text.includes("galaxy"),
     );
     expect(line).toBeDefined();
+  });
+
+  it("answers every purpose, and only after the holon has one", () => {
+    const beats = CHAPTERS.flatMap((c) => c.beats);
+    const found = beats.findIndex((b) => "play" in b && b.play === "found");
+    for (const p of PURPOSE_IDS) {
+      const lines = beats
+        .map((b, i) => ({ b, i }))
+        .filter(({ b }) => "say" in b && b.when === p);
+      expect(lines.length, p).toBeGreaterThan(0);
+      for (const { i } of lines) expect(i, p).toBeGreaterThan(found);
+      // each purpose leans on a need the board offers
+      expect(PLAY_OPTIONS.needs.map((n) => n.res)).toContain(PURPOSES[p].need);
+    }
   });
 });

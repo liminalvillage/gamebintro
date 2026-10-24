@@ -122,6 +122,19 @@ export const RESOURCES: Record<Resource, { label: string; words: string[] }> = {
   salt: { label: "SALT", words: ["SALT", "PRESERVE"] },
 };
 
+/** What a holon is for, chosen right after its name. Each one leans on the
+ * winter the chief tells of next, and puts its need first on the board. */
+export type Purpose = "land" | "warm" | "feed" | "gather";
+
+export const PURPOSE_IDS: Purpose[] = ["land", "warm", "feed", "gather"];
+
+export const PURPOSES: Record<Purpose, { label: string; need: Resource }> = {
+  land: { label: "HEAL THE LAND", need: "seeds" },
+  warm: { label: "KEEP US WARM", need: "shelter" },
+  feed: { label: "FEED EVERYONE", need: "cart" },
+  gather: { label: "GATHER PEOPLE", need: "hands" },
+};
+
 /** What the interactions offer to pick from, and the world around the tribe. */
 export const PLAY_OPTIONS = {
   /** Suggested needs: none of them is on the tribe's own shelf. */
@@ -177,6 +190,7 @@ export const TRIBE_PAGE = {
     members: "MEMBERS & ROLES",
     quests: "QUESTS",
     needs: "NEED",
+    purpose: "TO",
     library: "LIBRARY",
     equation: "VALUE EQUATION",
     links: "FEDERATION",

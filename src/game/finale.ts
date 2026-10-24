@@ -28,6 +28,7 @@ import {
   LINKS,
   MESH_IN_HOLONS,
   MOON_TONIGHT,
+  PURPOSES,
   RESOURCES,
   TRIBE_PAGE,
 } from "../story/holons";
@@ -222,6 +223,14 @@ export class FinaleScene implements Scene {
       align: "center",
       shadow: P.ink,
     });
+    if (tr.purpose) {
+      drawText(g, TRIBE_PAGE.rows.purpose, 40, 98, P.goldPale, {
+        align: "center",
+      });
+      wrap(PURPOSES[tr.purpose].label, 60).forEach((l, i) =>
+        drawText(g, l, 40, 108 + i * LINE_H, P.paper, { align: "center" }),
+      );
+    }
     const done = tr.quests.filter((q) => q.done);
     const hours = done.reduce((s, q) => s + q.hours, 0);
     const thanks = done.filter((q) => q.appreciated).length;

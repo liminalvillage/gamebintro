@@ -250,6 +250,8 @@ export class ChapterScene implements Scene {
     this.fxT = 0;
     this.waitT = 0;
     if ("say" in b) {
+      // a line for another purpose than the one this holon chose
+      if (b.when && b.when !== this.s.state.tribe.purpose) return this.next();
       if (b.say === "parasite") {
         this.s.audio.sting();
         this.shake = 1;
